@@ -1,0 +1,47 @@
+{
+  "@@locale": "en",
+  "appTitle": "Green Quest",
+  "@appTitle": {
+    "description": "The title of the game"
+  },
+  "startGame": "Start Game",
+  "selectLanguage": "Language",
+  "selectCharacter": "Select Your Character",
+  "characterFox": "Fox",
+  "characterRabbit": "Rabbit",
+  "characterBear": "Bear",
+  "characterSquirrel": "Squirrel",
+  "rollDice": "Roll Dice",
+  "turnStatus": "Your Turn",
+  "tileStatus": "Tile {number}",
+  "@tileStatus": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "eventNap": "Taking a nap under a big tree. Skip a turn!",
+  "eventWind": "Caught a friendly wind gust! Advance {spaces} spaces.",
+  "@eventWind": {
+    "placeholders": {
+      "spaces": {
+        "type": "int"
+      }
+    }
+  },
+  "eventClover": "Found a lucky four-leaf clover! Extra turn!",
+  "eventFog": "Got lost in the thick fog! Move backward {spaces} spaces.",
+  "@eventFog": {
+    "placeholders": {
+      "spaces": {
+        "type": "int"
+      }
+    }
+  },
+  "eventStart": "Got lost and returned to the Start!",
+  "victoryMessage": "Congratulations! You reached the Forest Haven!",
+  "defeatMessage": "Oh no! The milestones caught up to you. Try again!",
+  "playAgain": "Play Again",
+  "mainMenu": "Main Menu"
+}

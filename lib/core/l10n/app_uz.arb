@@ -1,0 +1,23 @@
+{
+  "@@locale": "uz",
+  "appTitle": "Yashil Sarguzasht",
+  "startGame": "O'yinni Boshlash",
+  "selectLanguage": "Til",
+  "selectCharacter": "Qahramonni tanlang",
+  "characterFox": "Tulkicha",
+  "characterRabbit": "Quyoncha",
+  "characterBear": "Ayiqcha",
+  "characterSquirrel": "Moshqutvoy",
+  "rollDice": "Toshni otish",
+  "turnStatus": "Sizning galingiz",
+  "tileStatus": "Katakcha {number}",
+  "eventNap": "Katta daraxt ostida uxlab qoldingiz. Navbatni o'tkazish!",
+  "eventWind": "Yoqimli shamol esdi! {spaces} katak oldinga.",
+  "eventClover": "To'rt bargli beda topdingiz! Qo'shimcha gal!",
+  "eventFog": "Qalin tumanda adashib qoldingiz! {spaces} katak orqaga.",
+  "eventStart": "Adashib qolib, boshlang'ich nuqtaga qaytdingiz!",
+  "victoryMessage": "Tabriklaymiz! Siz O'rmon maskaniga yetib keldingiz!",
+  "defeatMessage": "Afsuski, marraga yetolmadingiz. Qayta urinib ko'ring!",
+  "playAgain": "Qaytadan o'ynash",
+  "mainMenu": "Asosiy menyu"
+}
