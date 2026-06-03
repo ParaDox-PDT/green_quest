@@ -56,115 +56,117 @@ class MainMenuScreen extends ConsumerWidget {
               ),
             ),
 
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-                child: Row(
-                  children: [
-                    // LEFT COLUMN: Title Banner & Language Selection
-                    Expanded(
-                      flex: 4,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // App Title with playful dropshadow
-                          Text(
-                            localizations.appTitle,
-                            style: GoogleFonts.fredoka(
-                              fontSize: 48,
-                              fontWeight: FontWeight.bold,
-                              color: GameTheme.darkGreen,
-                              shadows: [
-                                Shadow(
-                                  color: Colors.black.withValues(alpha: 0.12),
-                                  offset: const Offset(0, 4),
-                                  blurRadius: 4,
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          // Subtitle or description
-                          Text(
-                            'Forest Roll-and-Move Game',
-                            style: GoogleFonts.fredoka(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: GameTheme.darkWood.withValues(alpha: 0.7),
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-                          // Custom Language Switcher Label
-                          Text(
-                            localizations.selectLanguage,
-                            style: GoogleFonts.fredoka(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: GameTheme.darkWood,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          // Language Switcher Custom Capsule Row
-                          _buildLanguageSwitcher(ref, activeLocale.languageCode),
-                        ],
-                      ),
-                    ),
-
-                    // VERTICAL SEPARATOR LINE
-                    Container(
-                      width: 2,
-                      height: double.infinity,
-                      margin: const EdgeInsets.symmetric(horizontal: 16.0),
-                      color: Colors.black12,
-                    ),
-
-                    // RIGHT COLUMN: Character Selection & Play Button
-                    Expanded(
-                      flex: 6,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            localizations.selectCharacter,
-                            style: GoogleFonts.fredoka(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: GameTheme.darkGreen,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          // Characters row (1x4)
-                          Expanded(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: GameCharacter.values.map((char) {
-                                final isSelected = selectedChar == char;
-                                return Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                                    child: _buildCharacterCard(ref, char, isSelected, localizations),
+            Positioned.fill(
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+                  child: Row(
+                    children: [
+                      // LEFT COLUMN: Title Banner & Language Selection
+                      Expanded(
+                        flex: 4,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // App Title with playful dropshadow
+                            Text(
+                              localizations.appTitle,
+                              style: GoogleFonts.fredoka(
+                                fontSize: 48,
+                                fontWeight: FontWeight.bold,
+                                color: GameTheme.darkGreen,
+                                shadows: [
+                                  Shadow(
+                                    color: Colors.black.withValues(alpha: 0.12),
+                                    offset: const Offset(0, 4),
+                                    blurRadius: 4,
                                   ),
-                                );
-                              }).toList(),
+                                ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          // Start Game Button with animated scaling entry
-                          AnimatedScale(
-                            scale: selectedChar != null ? 1.0 : 0.85,
-                            duration: const Duration(milliseconds: 200),
-                            curve: Curves.easeOutBack,
-                            child: AnimatedOpacity(
-                              opacity: selectedChar != null ? 1.0 : 0.4,
-                              duration: const Duration(milliseconds: 200),
-                              child: _buildPlayButton(context, selectedChar, localizations),
+                            const SizedBox(height: 8),
+                            // Subtitle or description
+                            Text(
+                              'Forest Roll-and-Move Game',
+                              style: GoogleFonts.fredoka(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                                color: GameTheme.darkWood.withValues(alpha: 0.7),
+                              ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 32),
+                            // Custom Language Switcher Label
+                            Text(
+                              localizations.selectLanguage,
+                              style: GoogleFonts.fredoka(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: GameTheme.darkWood,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            // Language Switcher Custom Capsule Row
+                            _buildLanguageSwitcher(ref, activeLocale.languageCode),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+
+                      // VERTICAL SEPARATOR LINE
+                      Container(
+                        width: 2,
+                        height: double.infinity,
+                        margin: const EdgeInsets.symmetric(horizontal: 16.0),
+                        color: Colors.black12,
+                      ),
+
+                      // RIGHT COLUMN: Character Selection & Play Button
+                      Expanded(
+                        flex: 6,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              localizations.selectCharacter,
+                              style: GoogleFonts.fredoka(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: GameTheme.darkGreen,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            // Characters row (1x4)
+                            Expanded(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                children: GameCharacter.values.map((char) {
+                                  final isSelected = selectedChar == char;
+                                  return Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                      child: _buildCharacterCard(ref, char, isSelected, localizations),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            // Start Game Button with animated scaling entry
+                            AnimatedScale(
+                              scale: selectedChar != null ? 1.0 : 0.85,
+                              duration: const Duration(milliseconds: 200),
+                              curve: Curves.easeOutBack,
+                              child: AnimatedOpacity(
+                                opacity: selectedChar != null ? 1.0 : 0.4,
+                                duration: const Duration(milliseconds: 200),
+                                child: _buildPlayButton(context, selectedChar, localizations),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
