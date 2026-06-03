@@ -134,17 +134,18 @@ class MainMenuScreen extends ConsumerWidget {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          // Characters grid (2x2)
+                          // Characters row (1x4)
                           Expanded(
-                            child: GridView.count(
-                              crossAxisCount: 2,
-                              childAspectRatio: 1.5,
-                              mainAxisSpacing: 12,
-                              crossAxisSpacing: 12,
-                              physics: const NeverScrollableScrollPhysics(),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: GameCharacter.values.map((char) {
                                 final isSelected = selectedChar == char;
-                                return _buildCharacterCard(ref, char, isSelected, localizations);
+                                return Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                    child: _buildCharacterCard(ref, char, isSelected, localizations),
+                                  ),
+                                );
                               }).toList(),
                             ),
                           ),
@@ -253,26 +254,26 @@ class MainMenuScreen extends ConsumerWidget {
                 ]
               : GameTheme.softShadows,
         ),
-        padding: const EdgeInsets.all(8.0),
-        child: Row(
+        padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // Character drawing
             Expanded(
-              flex: 4,
-              child: CharacterVectorWidget(character: char, size: 55),
+              child: CharacterVectorWidget(character: char, size: 65),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(height: 4),
             // Character name
-            Expanded(
-              flex: 6,
-              child: Text(
-                name,
-                style: GoogleFonts.fredoka(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: isSelected ? cardColor : GameTheme.darkWood,
-                ),
+            Text(
+              name,
+              style: GoogleFonts.fredoka(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: isSelected ? cardColor : GameTheme.darkWood,
               ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
