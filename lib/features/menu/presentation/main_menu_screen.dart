@@ -70,19 +70,24 @@ class MainMenuScreen extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // App Title with playful dropshadow
-                            Text(
-                              localizations.appTitle,
-                              style: GoogleFonts.fredoka(
-                                fontSize: 48,
-                                fontWeight: FontWeight.bold,
-                                color: GameTheme.darkGreen,
-                                shadows: [
-                                  Shadow(
-                                    color: Colors.black.withValues(alpha: 0.12),
-                                    offset: const Offset(0, 4),
-                                    blurRadius: 4,
-                                  ),
-                                ],
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                localizations.appTitle,
+                                maxLines: 1,
+                                style: GoogleFonts.fredoka(
+                                  fontSize: 38,
+                                  fontWeight: FontWeight.bold,
+                                  color: GameTheme.darkGreen,
+                                  shadows: [
+                                    Shadow(
+                                      color: Colors.black.withValues(alpha: 0.12),
+                                      offset: const Offset(0, 4),
+                                      blurRadius: 4,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -238,7 +243,7 @@ class MainMenuScreen extends ConsumerWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeInOut,
-        transform: Matrix4.diagonal3Values(isSelected ? 1.05 : 1.0, isSelected ? 1.05 : 1.0, 1.0),
+        transform: Matrix4.diagonal3Values(isSelected ? 1.0 : 0.93, isSelected ? 1.0 : 0.93, 1.0),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
