@@ -1,18 +1,390 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:green_quest/app/theme/theme.dart';
+import 'package:green_quest/core/providers/locale_provider.dart';
+import 'package:green_quest/features/menu/domain/providers/character_provider.dart';
+import 'package:green_quest/features/menu/presentation/widgets/character_painters.dart';
+import 'package:green_quest/features/game/presentation/game_screen.dart';
+import 'package:green_quest/core/l10n/app_localizations.dart';
 
 class MainMenuScreen extends ConsumerWidget {
   const MainMenuScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return const Scaffold(
-      body: Center(
-        child: Text(
-          'Main Menu Screen (Coming Soon in Step 2)',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+    final activeLocale = ref.watch(localeProvider);
+    final selectedChar = ref.watch(selectedCharacterProvider);
+    final localizations = AppLocalizations.of(context)!;
+
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color(0xFFE8F5E9), // Light mint green
+              Color(0xFFC8E6C9), // Soft green
+              Color(0xFFA5D6A7), // Forest green bottom accent
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Stack(
+          children: [
+            // Ambient leaf silhouettes in the background
+            Positioned(
+              left: -40,
+              top: -40,
+              child: Opacity(
+                opacity: 0.15,
+                child: CustomPaint(
+                  size: const Size(180, 180),
+                  painter: DecorativeLeafPainter(),
+                ),
+              ),
+            ),
+            Positioned(
+              right: -30,
+              bottom: -40,
+              child: Opacity(
+                opacity: 0.15,
+                child: CustomPaint(
+                  size: const Size(200, 200),
+                  painter: DecorativeLeafPainter(rotateAngle: 1.8),
+                ),
+              ),
+            ),
+
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+                child: Row(
+                  children: [
+                    // LEFT COLUMN: Title Banner & Language Selection
+                    Expanded(
+                      flex: 4,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // App Title with playful dropshadow
+                          Text(
+                            localizations.appTitle,
+                            style: GoogleFonts.fredoka(
+                              fontSize: 48,
+                              fontWeight: FontWeight.bold,
+                              color: GameTheme.darkGreen,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black.withValues(alpha: 0.12),
+                                  offset: const Offset(0, 4),
+                                  blurRadius: 4,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          // Subtitle or description
+                          Text(
+                            'Forest Roll-and-Move Game',
+                            style: GoogleFonts.fredoka(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: GameTheme.darkWood.withValues(alpha: 0.7),
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+                          // Custom Language Switcher Label
+                          Text(
+                            localizations.selectLanguage,
+                            style: GoogleFonts.fredoka(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: GameTheme.darkWood,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          // Language Switcher Custom Capsule Row
+                          _buildLanguageSwitcher(ref, activeLocale.languageCode),
+                        ],
+                      ),
+                    ),
+
+                    // VERTICAL SEPARATOR LINE
+                    Container(
+                      width: 2,
+                      height: double.infinity,
+                      margin: const EdgeInsets.symmetric(horizontal: 16.0),
+                      color: Colors.black12,
+                    ),
+
+                    // RIGHT COLUMN: Character Selection & Play Button
+                    Expanded(
+                      flex: 6,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            localizations.selectCharacter,
+                            style: GoogleFonts.fredoka(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: GameTheme.darkGreen,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          // Characters grid (2x2)
+                          Expanded(
+                            child: GridView.count(
+                              crossAxisCount: 2,
+                              childAspectRatio: 1.5,
+                              mainAxisSpacing: 12,
+                              crossAxisSpacing: 12,
+                              physics: const NeverScrollableScrollPhysics(),
+                              children: GameCharacter.values.map((char) {
+                                final isSelected = selectedChar == char;
+                                return _buildCharacterCard(ref, char, isSelected, localizations);
+                              }).toList(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          // Start Game Button with animated scaling entry
+                          AnimatedScale(
+                            scale: selectedChar != null ? 1.0 : 0.85,
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeOutBack,
+                            child: AnimatedOpacity(
+                              opacity: selectedChar != null ? 1.0 : 0.4,
+                              duration: const Duration(milliseconds: 200),
+                              child: _buildPlayButton(context, selectedChar, localizations),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+
+  /// Builds the custom capsule language buttons
+  Widget _buildLanguageSwitcher(WidgetRef ref, String activeLangCode) {
+    const langs = [
+      {'code': 'en', 'label': 'EN'},
+      {'code': 'ru', 'label': 'RU'},
+      {'code': 'uz', 'label': 'UZ'},
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.black12, width: 1.5),
+      ),
+      padding: const EdgeInsets.all(4.0),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: langs.map((lang) {
+          final isSelected = lang['code'] == activeLangCode;
+          return GestureDetector(
+            onTap: () {
+              ref.read(localeProvider.notifier).setLanguageCode(lang['code']!);
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected ? GameTheme.primaryGreen : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                lang['label']!,
+                style: GoogleFonts.fredoka(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? Colors.white : GameTheme.darkWood,
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  /// Builds a card selector for each character with implicit animations
+  Widget _buildCharacterCard(
+    WidgetRef ref,
+    GameCharacter char,
+    bool isSelected,
+    AppLocalizations localizations,
+  ) {
+    final name = _getCharacterName(char, localizations);
+    final cardColor = Color(char.colorHex);
+
+    return GestureDetector(
+      onTap: () {
+        ref.read(selectedCharacterProvider.notifier).state = char;
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOut,
+        transform: Matrix4.diagonal3Values(isSelected ? 1.05 : 1.0, isSelected ? 1.05 : 1.0, 1.0),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? cardColor : Colors.black12,
+            width: isSelected ? 4 : 2,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: cardColor.withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  )
+                ]
+              : GameTheme.softShadows,
+        ),
+        padding: const EdgeInsets.all(8.0),
+        child: Row(
+          children: [
+            // Character drawing
+            Expanded(
+              flex: 4,
+              child: CharacterVectorWidget(character: char, size: 55),
+            ),
+            const SizedBox(width: 8),
+            // Character name
+            Expanded(
+              flex: 6,
+              child: Text(
+                name,
+                style: GoogleFonts.fredoka(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? cardColor : GameTheme.darkWood,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Play Button Builder
+  Widget _buildPlayButton(BuildContext context, GameCharacter? selectedChar, AppLocalizations localizations) {
+    final active = selectedChar != null;
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: active
+            ? [
+                BoxShadow(
+                  color: GameTheme.primaryAmber.withValues(alpha: 0.4),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                )
+              ]
+            : null,
+      ),
+      child: ElevatedButton(
+        onPressed: active
+            ? () {
+                Navigator.of(context).push(
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) => const GameScreen(),
+                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                      return FadeTransition(
+                        opacity: animation,
+                        child: ScaleTransition(
+                          scale: Tween<double>(begin: 0.95, end: 1.0).animate(
+                            CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+                          ),
+                          child: child,
+                        ),
+                      );
+                    },
+                    transitionDuration: const Duration(milliseconds: 600),
+                  ),
+                );
+              }
+            : null, // Disabled when no character is selected
+        style: ElevatedButton.styleFrom(
+          backgroundColor: GameTheme.primaryAmber,
+          padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 14),
+          disabledBackgroundColor: Colors.grey.shade400,
+          disabledForegroundColor: Colors.white,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(localizations.startGame),
+            const SizedBox(width: 8),
+            const Icon(Icons.play_arrow_rounded, size: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getCharacterName(GameCharacter character, AppLocalizations localizations) {
+    switch (character) {
+      case GameCharacter.fox:
+        return localizations.characterFox;
+      case GameCharacter.rabbit:
+        return localizations.characterRabbit;
+      case GameCharacter.bear:
+        return localizations.characterBear;
+      case GameCharacter.squirrel:
+        return localizations.characterSquirrel;
+    }
+  }
+}
+
+/// Simple painter to draw ambient leaf shapes in background corner
+class DecorativeLeafPainter extends CustomPainter {
+  final double rotateAngle;
+  DecorativeLeafPainter({this.rotateAngle = 0});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.save();
+    canvas.translate(size.width / 2, size.height / 2);
+    canvas.rotate(rotateAngle);
+    canvas.translate(-size.width / 2, -size.height / 2);
+
+    final paint = Paint()
+      ..color = Colors.green.shade700.withValues(alpha: 0.15)
+      ..style = PaintingStyle.fill;
+
+    final path = Path()
+      ..moveTo(size.width * 0.1, size.height * 0.9)
+      ..cubicTo(
+        size.width * 0.1, size.height * 0.2,
+        size.width * 0.8, size.height * 0.1,
+        size.width * 0.9, size.height * 0.1,
+      )
+      ..cubicTo(
+        size.width * 0.9, size.height * 0.8,
+        size.width * 0.2, size.height * 0.9,
+        size.width * 0.1, size.height * 0.9,
+      )
+      ..close();
+
+    canvas.drawPath(path, paint);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
