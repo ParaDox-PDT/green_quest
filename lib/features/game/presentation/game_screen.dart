@@ -463,7 +463,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         return Transform.scale(
           scale: value,
           child: Opacity(
-            opacity: value,
+            opacity: value.clamp(0.0, 1.0),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
               margin: const EdgeInsets.symmetric(horizontal: 32.0),

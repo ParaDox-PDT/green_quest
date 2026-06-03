@@ -10,7 +10,8 @@ class BoardPath {
   static const double tileRadius = 22.0;
 
   static const double bottomSpacing = 100.0;
-  static const double stepY = 21.2; // vertical climb per tile
+  static const double stepY = 16.0; // vertical climb per tile within a row
+  static const double rowExtraStep = 32.0; // extra vertical step at row turns
 
   /// Computes the exact center offset of a tile index (0 to 99) on the board
   static Offset getTileOffset(int index) {
@@ -29,8 +30,8 @@ class BoardPath {
     final double wobble = 14 * math.sin(r * 1.5);
     final double x = (c + 0.5) * colWidth + wobble;
 
-    // Calculate Y center (climbing up from bottom)
-    final double y = boardHeight - bottomSpacing - (index * stepY);
+    // Calculate Y center (climbing up from bottom with extra vertical spacing at row transitions)
+    final double y = boardHeight - bottomSpacing - (index * stepY) - (r * rowExtraStep);
 
     return Offset(x, y);
   }
