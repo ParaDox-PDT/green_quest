@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:green_quest/app/theme/theme.dart';
-import 'package:green_quest/features/game/domain/providers/game_provider.dart';
 
 class BoardPath {
   static const double boardWidth = 500.0;
@@ -41,8 +40,21 @@ class BoardPath {
 class BoardPathPainter extends CustomPainter {
   final int playerTile;
   final int rivalTile;
+  final Map<int, int> windTiles;
+  final Map<int, int> fogTiles;
+  final Set<int> napTiles;
+  final Set<int> cloverTiles;
+  final Set<int> startTiles;
 
-  BoardPathPainter({required this.playerTile, required this.rivalTile});
+  BoardPathPainter({
+    required this.playerTile,
+    required this.rivalTile,
+    required this.windTiles,
+    required this.fogTiles,
+    required this.napTiles,
+    required this.cloverTiles,
+    required this.startTiles,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -124,10 +136,11 @@ class BoardPathPainter extends CustomPainter {
     // Categorize tiles (1-based positions)
     final bool isStart = (tileNumber == 1);
     final bool isFinish = (tileNumber == 100);
-    final bool isWind = GameNotifier.windTiles.containsKey(tileNumber);
-    final bool isFog = GameNotifier.fogTiles.containsKey(tileNumber);
-    final bool isNap = GameNotifier.napTiles.contains(tileNumber);
-    final bool isClover = GameNotifier.cloverTiles.contains(tileNumber);
+    final bool isWind = windTiles.containsKey(tileNumber);
+    final bool isFog = fogTiles.containsKey(tileNumber);
+    final bool isNap = napTiles.contains(tileNumber);
+    final bool isClover = cloverTiles.contains(tileNumber);
+    final bool isBackToStart = startTiles.contains(tileNumber);
 
     // Default tile colors
     Color fill = Colors.white;
@@ -154,6 +167,9 @@ class BoardPathPainter extends CustomPainter {
     } else if (isClover) {
       fill = const Color(0xFFE8F5E9); // Lucky clover green
       border = GameTheme.primaryGreen;
+    } else if (isBackToStart) {
+      fill = const Color(0xFFFFEBEE); // Light red
+      border = const Color(0xFFE57373); // Coral red
     }
 
     // Draw tile shadow
@@ -193,10 +209,40 @@ class BoardPathPainter extends CustomPainter {
       _drawNapIcon(canvas, offset, const Color(0xFFAB47BC));
     } else if (isClover) {
       _drawCloverIcon(canvas, offset, GameTheme.primaryGreen);
+    } else if (isBackToStart) {
+      _drawReturnIcon(canvas, offset, const Color(0xFFE57373));
     } else {
       // Normal tile: draw tile number
       _drawText(canvas, offset, '$tileNumber', GameTheme.darkWood.withValues(alpha: 0.7), 13);
     }
+  }
+
+  void _drawReturnIcon(Canvas canvas, Offset offset, Color color) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final cx = offset.dx;
+    final cy = offset.dy;
+
+    // Draw a circular arrow turning counter-clockwise back
+    canvas.drawArc(
+      Rect.fromCenter(center: Offset(cx, cy), width: 16, height: 16),
+      0.5,
+      4.8,
+      false,
+      paint,
+    );
+
+    // Draw arrow head at the end
+    final path = Path()
+      ..moveTo(cx - 8, cy - 2)
+      ..lineTo(cx - 12, cy - 2)
+      ..lineTo(cx - 10, cy + 2)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
   }
 
   void _drawText(Canvas canvas, Offset offset, String text, Color color, double size) {
@@ -302,6 +348,12 @@ class BoardPathPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant BoardPathPainter oldDelegate) {
-    return oldDelegate.playerTile != playerTile || oldDelegate.rivalTile != rivalTile;
+    return oldDelegate.playerTile != playerTile ||
+        oldDelegate.rivalTile != rivalTile ||
+        oldDelegate.windTiles != windTiles ||
+        oldDelegate.fogTiles != fogTiles ||
+        oldDelegate.napTiles != napTiles ||
+        oldDelegate.cloverTiles != cloverTiles ||
+        oldDelegate.startTiles != startTiles;
   }
 }

@@ -14,7 +14,7 @@ void main() {
       container.dispose();
     });
 
-    test('Initial game state is correct', () {
+    test('Initial game state is correct and has dynamic board', () {
       final state = container.read(gameStateProvider);
       
       expect(state.playerTile, equals(1));
@@ -25,12 +25,20 @@ void main() {
       expect(state.eventType, isNull);
       expect(state.isGameOver, isFalse);
       expect(state.isVictory, isFalse);
+
+      // Verify dynamic board lists are initialized on startup
+      expect(state.windTiles.length, equals(5));
+      expect(state.fogTiles.length, equals(5));
+      expect(state.napTiles.length, equals(5));
+      expect(state.cloverTiles.length, equals(4));
+      expect(state.startTiles.length, equals(1));
     });
 
-    test('Resetting the game restores starting conditions', () {
+    test('Resetting the game restores starting conditions and randomizes board', () {
       final notifier = container.read(gameStateProvider.notifier);
+      final initialStartTile = container.read(gameStateProvider).startTiles.first;
+      expect(initialStartTile >= 70 && initialStartTile <= 90, isTrue);
       
-      // Manually trigger some updates by executing operations, then reset
       notifier.resetGame();
       
       final state = container.read(gameStateProvider);
@@ -38,24 +46,32 @@ void main() {
       expect(state.rivalTile, equals(1));
       expect(state.isPlayerTurn, isTrue);
       expect(state.isGameOver, isFalse);
+      
+      // Sometime random shuffles might produce the same start tile, but generally it changes
+      // This test ensures board is at least generated correctly
+      expect(state.startTiles.length, equals(1));
     });
 
-    test('Special Wind tile moves player forward correctly', () async {
-      // Directly check the wind tiles mapping logic
-      // In game_provider.dart: 8: 5 (lands on 8, advances 5 to 13)
-      expect(GameNotifier.windTiles[8], equals(5));
-      expect(GameNotifier.windTiles[22], equals(4));
+    test('Special Wind tile advance ranges are correct', () async {
+      final state = container.read(gameStateProvider);
+      
+      state.windTiles.forEach((tile, advance) {
+        expect(advance >= 3 && advance <= 6, isTrue);
+      });
     });
 
-    test('Special Fog tile moves player backward correctly', () async {
-      // In game_provider.dart: 18: 4 (lands on 18, retreats 4 to 14)
-      expect(GameNotifier.fogTiles[18], equals(4));
-      expect(GameNotifier.fogTiles[38], equals(6));
+    test('Special Fog tile retreat ranges are correct', () async {
+      final state = container.read(gameStateProvider);
+      
+      state.fogTiles.forEach((tile, retreat) {
+        expect(retreat >= 3 && retreat <= 6, isTrue);
+      });
     });
 
-    test('Special Nap and Clover tiles are defined correctly', () {
-      expect(GameNotifier.napTiles.contains(15), isTrue);
-      expect(GameNotifier.cloverTiles.contains(12), isTrue);
+    test('Start hazard tile position is in the late-game range', () {
+      final state = container.read(gameStateProvider);
+      final startTile = state.startTiles.first;
+      expect(startTile >= 70 && startTile <= 90, isTrue);
     });
   });
 }

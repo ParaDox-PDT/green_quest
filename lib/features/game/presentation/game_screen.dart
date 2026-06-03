@@ -151,12 +151,17 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        // Winding Path & Tile Points
+                        // Winding Path & Tile Points (passes dynamic boards)
                         Positioned.fill(
                           child: CustomPaint(
                             painter: BoardPathPainter(
                               playerTile: gameState.playerTile,
                               rivalTile: gameState.rivalTile,
+                              windTiles: gameState.windTiles,
+                              fogTiles: gameState.fogTiles,
+                              napTiles: gameState.napTiles,
+                              cloverTiles: gameState.cloverTiles,
+                              startTiles: gameState.startTiles,
                             ),
                           ),
                         ),
@@ -210,8 +215,15 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                         isPlayer: true,
                       ),
 
-                      // Back to Menu Button
-                      _buildBackButton(context),
+                      // Back & Help Info Buttons Row
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildBackButton(context),
+                          const SizedBox(width: 12),
+                          _buildInfoButton(context),
+                        ],
+                      ),
 
                       // Rival HUD
                       _buildHudCard(
@@ -258,7 +270,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                         boxShadow: GameTheme.softShadows,
                       ),
                       child: Text(
-                        gameState.isPlayerTurn ? localizations.turnStatus : 'Rival Thinking...',
+                        _getTurnLabel(context, gameState),
                         style: GoogleFonts.fredoka(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -268,11 +280,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                     ),
                     const SizedBox(height: 8),
                     
-                    // Dice Button
+                    // Dice Button (guarded against spam taps)
                     AnimatedDice(
                       value: gameState.diceValue,
                       isRolling: gameState.isRolling,
-                      onTap: (gameState.isPlayerTurn && !gameState.isRolling && !gameState.isGameOver)
+                      onTap: (gameState.isPlayerTurn && !gameState.isRolling && !gameState.isGameOver && !gameState.isProcessingMove)
                           ? () => ref.read(gameStateProvider.notifier).rollPlayerDice()
                           : null,
                     ),
@@ -427,6 +439,161 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     );
   }
 
+  Widget _buildInfoButton(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.95),
+        shape: BoxShape.circle,
+        boxShadow: GameTheme.softShadows,
+      ),
+      child: IconButton(
+        icon: const Icon(Icons.help_outline_rounded, color: Color(0xFF8D6E63), size: 24),
+        onPressed: () => _showTilesInfoDialog(context),
+      ),
+    );
+  }
+
+  void _showTilesInfoDialog(BuildContext context) {
+    final lang = ref.read(localeProvider).languageCode;
+    
+    String title = 'Game Rules & Special Tiles';
+    if (lang == 'uz') {
+      title = 'Oʻyin qoidalari va Maxsus kataklar';
+    } else if (lang == 'ru') {
+      title = 'Правила игры и Особые клетки';
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: Text(
+            title,
+            style: GoogleFonts.fredoka(fontWeight: FontWeight.bold, color: GameTheme.darkWood),
+            textAlign: TextAlign.center,
+          ),
+          content: SizedBox(
+            width: 480,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildInfoTileItem(
+                    label: lang == 'uz' ? 'Mavjli Shamol' : (lang == 'ru' ? 'Ветер' : 'Friendly Wind'),
+                    desc: lang == 'uz' ? 'Qahramonni bir necha katak oldinga uchirib yuboradi.' : (lang == 'ru' ? 'Переносит героя на несколько клеток вперед.' : 'Blows the hero forward by several spaces.'),
+                    color: const Color(0xFFE0F7FA),
+                    borderColor: const Color(0xFF00ACC1),
+                    icon: Icons.air_rounded,
+                  ),
+                  const SizedBox(height: 10),
+                  _buildInfoTileItem(
+                    label: lang == 'uz' ? 'Qalin Tuman' : (lang == 'ru' ? 'Туман' : 'Thick Fog'),
+                    desc: lang == 'uz' ? 'Adashib qolib, bir necha katak orqaga qaytasiz.' : (lang == 'ru' ? 'Герой сбивается с пути и отступает назад.' : 'Hero gets lost and retreats backward.'),
+                    color: const Color(0xFFECEFF1),
+                    borderColor: const Color(0xFF78909C),
+                    icon: Icons.cloud_rounded,
+                  ),
+                  const SizedBox(height: 10),
+                  _buildInfoTileItem(
+                    label: lang == 'uz' ? 'Daraxt Soyasi' : (lang == 'ru' ? 'Сон под деревом' : 'Tree Nap'),
+                    desc: lang == 'uz' ? 'Qahramon dam oladi va keyingi navbatni oʻtkazib yuboradi.' : (lang == 'ru' ? 'Герой засыпает и пропускает следующий ход.' : 'Hero falls asleep and skips the next turn.'),
+                    color: const Color(0xFFF3E5F5),
+                    borderColor: const Color(0xFFAB47BC),
+                    icon: Icons.hotel_rounded,
+                  ),
+                  const SizedBox(height: 10),
+                  _buildInfoTileItem(
+                    label: lang == 'uz' ? 'Omadli Beda' : (lang == 'ru' ? 'Клевер удачи' : 'Lucky Clover'),
+                    desc: lang == 'uz' ? 'Toʻrt bargli beda yana bir marta tosh otish imkonini beradi.' : (lang == 'ru' ? 'Четырехлистный клевер дает дополнительный ход.' : 'Four-leaf clover grants an extra dice roll.'),
+                    color: const Color(0xFFE8F5E9),
+                    borderColor: GameTheme.primaryGreen,
+                    icon: Icons.stars_rounded,
+                  ),
+                  const SizedBox(height: 10),
+                  _buildInfoTileItem(
+                    label: lang == 'uz' ? 'Adashib Qolish' : (lang == 'ru' ? 'Портал на старт' : 'Lost Hazard'),
+                    desc: lang == 'uz' ? 'Eng katta xavfli katak! Qahramonni butunlay 1-katakchaga qaytaradi.' : (lang == 'ru' ? 'Самая опасная клетка! Возвращает героя на 1-ю стартовую клетку.' : 'The ultimate hazard! Returns the hero completely to start Tile 1.'),
+                    color: const Color(0xFFFFEBEE),
+                    borderColor: const Color(0xFFE57373),
+                    icon: Icons.replay_rounded,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            Center(
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(
+                  lang == 'uz' ? 'Tushunarli' : (lang == 'ru' ? 'Понятно' : 'Got it!'),
+                  style: GoogleFonts.fredoka(fontWeight: FontWeight.bold, fontSize: 16, color: GameTheme.primaryGreen),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildInfoTileItem({
+    required String label,
+    required String desc,
+    required Color color,
+    required Color borderColor,
+    required IconData icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor, width: 2),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: borderColor, size: 28),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.fredoka(fontWeight: FontWeight.bold, fontSize: 15, color: GameTheme.darkWood),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  desc,
+                  style: GoogleFonts.fredoka(fontSize: 13, color: GameTheme.darkWood.withValues(alpha: 0.8)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getTurnLabel(BuildContext context, GameState gameState) {
+    final localizations = AppLocalizations.of(context)!;
+    final lang = ref.watch(localeProvider).languageCode;
+    
+    if (gameState.isPlayerTurn) {
+      return localizations.turnStatus;
+    } else {
+      if (lang == 'uz') {
+        return "Raqib navbati";
+      } else if (lang == 'ru') {
+        return "Ход соперника";
+      } else {
+        return "Rival's Turn";
+      }
+    }
+  }
+
   Widget _buildEventBanner(String type, int? spaces, AppLocalizations localizations) {
     String message = '';
     Color color = Colors.white;
@@ -452,6 +619,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         message = localizations.eventFog(spaces ?? 0);
         color = const Color(0xFF78909C); // Slate grey
         icon = Icons.cloud_rounded;
+        break;
+      case 'start':
+        message = localizations.eventStart;
+        color = const Color(0xFFE57373); // Red/pink hazard
+        icon = Icons.replay_rounded;
         break;
     }
 
