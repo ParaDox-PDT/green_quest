@@ -516,3 +516,71 @@ class SquirrelPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+
+/// 5. RIVAL CROW FIGURINE PAINTER (The opponent token)
+class RivalCrowPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final d = math.min(w, h);
+    final cx = w / 2;
+    final cy = h / 2;
+
+    const baseColor = Color(0xFF37474F); // Dark slate gray (charcoal)
+    const beakColor = Color(0xFFFFB300); // Yellow gold beak
+    const black = Color(0xFF212121);
+    final outlinePaint = Paint()
+      ..color = black
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final bodyPaint = Paint()..color = baseColor;
+    final beakPaint = Paint()..color = beakColor;
+
+    // 1. Draw Pawn Base & Column
+    drawTokenBaseAndColumn(canvas, cx, cy, d, baseColor);
+
+    // 2. Crow Head (center at cy - d * 0.12)
+    final double hx = cx;
+    final double hy = cy - d * 0.12;
+    final double hr = d * 0.20;
+
+    // Feather tuft on top of head
+    final tuftPath = Path()
+      ..moveTo(hx - hr * 0.2, hy - hr * 0.9)
+      ..quadraticBezierTo(hx - hr * 0.4, hy - hr * 1.3, hx - hr * 0.5, hy - hr * 1.4)
+      ..quadraticBezierTo(hx - hr * 0.1, hy - hr * 1.2, hx, hy - hr * 0.95)
+      ..quadraticBezierTo(hx + hr * 0.3, hy - hr * 1.3, hx + hr * 0.4, hy - hr * 1.4)
+      ..quadraticBezierTo(hx + hr * 0.2, hy - hr * 1.2, hx + hr * 0.15, hy - hr * 0.9)
+      ..close();
+    canvas.drawPath(tuftPath, bodyPaint);
+    canvas.drawPath(tuftPath, outlinePaint);
+
+    // Head circle
+    canvas.drawCircle(Offset(hx, hy), hr, bodyPaint);
+
+    // Outline head circle
+    canvas.drawCircle(Offset(hx, hy), hr, outlinePaint);
+
+    // Big yellow beak
+    final beakPath = Path()
+      ..moveTo(hx - hr * 0.3, hy + hr * 0.1)
+      ..quadraticBezierTo(hx, hy + hr * 0.05, hx + hr * 0.3, hy + hr * 0.1)
+      ..quadraticBezierTo(hx, hy + hr * 0.7, hx, hy + hr * 0.8)
+      ..close();
+    canvas.drawPath(beakPath, beakPaint);
+    canvas.drawPath(beakPath, outlinePaint);
+
+    // Eyes
+    drawCartoonEyes(canvas, hx, hy - hr * 0.2, hr * 0.4, hr * 0.16);
+
+    // Blush
+    drawBlush(canvas, hx, hy + hr * 0.1, hr * 0.55, hr * 0.11);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
