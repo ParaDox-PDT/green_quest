@@ -420,12 +420,15 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                       // Action Buttons
                       SizedBox(
                         width: double.infinity,
-                        height: 52,
+                        height: isHost ? 56 : 72,
                         child: isHost
                             ? ElevatedButton(
                                 onPressed: _isStartGameEnabled(mpState)
                                     ? () => ref.read(multiplayerProvider.notifier).startGame()
                                     : null,
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 24),
+                                ),
                                 child: Text(_getText('start_btn', lang)),
                               )
                             : Column(
@@ -442,6 +445,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                           backgroundColor: (myPlayer?.isReady ?? false)
                                               ? Colors.grey.shade500
                                               : GameTheme.primaryAmber,
+                                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                                         ),
                                         child: Text(
                                           (myPlayer?.isReady ?? false)

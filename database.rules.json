@@ -32,6 +32,7 @@
     "active_games": {
       "$roomId": {
         ".read": "auth != null && root.child('rooms/' + $roomId + '/players/' + auth.uid).exists()",
+        ".write": "auth != null && root.child('rooms/' + $roomId + '/hostId').val() == auth.uid",
         "positions": {
           "$playerId": {
             ".write": "auth != null && auth.uid == $playerId && root.child('active_games/' + $roomId + '/currentTurn').val() == auth.uid",
