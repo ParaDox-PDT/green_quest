@@ -70,8 +70,6 @@ class MainMenuScreen extends ConsumerWidget {
                         flex: 4,
                         child: LayoutBuilder(
                           builder: (context, constraints) {
-                            final double logoHeight = constraints.maxHeight > 500 ? 70.0 : 40.0;
-                            final double topSpacer = constraints.maxHeight > 500 ? 12.0 : 6.0;
                             final double titleSubtitleSpacer = constraints.maxHeight > 500 ? 8.0 : 4.0;
                             final double midSpacer = constraints.maxHeight > 500 ? 28.0 : 12.0;
                             final double sectionSpacer = constraints.maxHeight > 500 ? 20.0 : 10.0;
@@ -86,13 +84,6 @@ class MainMenuScreen extends ConsumerWidget {
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      // App Logo Image
-                                      Image.asset(
-                                        'assets/images/app_logo.png',
-                                        height: logoHeight,
-                                        fit: BoxFit.contain,
-                                      ),
-                                      SizedBox(height: topSpacer),
                                       // App Title with playful dropshadow
                                       FittedBox(
                                         fit: BoxFit.scaleDown,
