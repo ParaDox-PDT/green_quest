@@ -72,7 +72,6 @@ class MainMenuScreen extends ConsumerWidget {
                           builder: (context, constraints) {
                             final double titleSubtitleSpacer = constraints.maxHeight > 500 ? 8.0 : 4.0;
                             final double midSpacer = constraints.maxHeight > 500 ? 28.0 : 12.0;
-                            final double sectionSpacer = constraints.maxHeight > 500 ? 20.0 : 10.0;
 
                             return SingleChildScrollView(
                               child: ConstrainedBox(
@@ -116,19 +115,6 @@ class MainMenuScreen extends ConsumerWidget {
                                         ),
                                       ),
                                       SizedBox(height: midSpacer),
-                                      // Custom Language Switcher Label
-                                      Text(
-                                        localizations.selectLanguage,
-                                        style: GoogleFonts.fredoka(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                          color: GameTheme.darkWood,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      // Language Switcher Custom Capsule Row
-                                      _buildLanguageSwitcher(ref, activeLocale.languageCode),
-                                      SizedBox(height: sectionSpacer),
                                       Text(
                                         activeLocale.languageCode == 'uz'
                                             ? 'Xaritani Tanlash'
@@ -220,56 +206,88 @@ class MainMenuScreen extends ConsumerWidget {
                 ),
               ),
             ),
+
+            // Floating Language Selector in Top Right
+            Positioned(
+              top: 12,
+              right: 12,
+              child: SafeArea(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.black12, width: 1.5),
+                    boxShadow: GameTheme.softShadows,
+                  ),
+                  child: Theme(
+                    data: Theme.of(context).copyWith(
+                      cardTheme: CardThemeData(
+                        color: Colors.white,
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ),
+                    child: PopupMenuButton<String>(
+                      initialValue: activeLocale.languageCode,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.language_rounded, color: GameTheme.darkGreen, size: 18),
+                            const SizedBox(width: 6),
+                            Text(
+                              activeLocale.languageCode.toUpperCase(),
+                              style: GoogleFonts.fredoka(
+                                fontWeight: FontWeight.bold,
+                                color: GameTheme.darkWood,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const Icon(Icons.arrow_drop_down_rounded, color: GameTheme.darkWood, size: 18),
+                          ],
+                        ),
+                      ),
+                      onSelected: (String langCode) {
+                        ref.read(localeProvider.notifier).setLanguageCode(langCode);
+                      },
+                      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                        PopupMenuItem<String>(
+                          value: 'en',
+                          child: Text(
+                            'English',
+                            style: GoogleFonts.fredoka(fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                        PopupMenuItem<String>(
+                          value: 'ru',
+                          child: Text(
+                            'Русский',
+                            style: GoogleFonts.fredoka(fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                        PopupMenuItem<String>(
+                          value: 'uz',
+                          child: Text(
+                            'Oʻzbekcha',
+                            style: GoogleFonts.fredoka(fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  /// Builds the custom capsule language buttons
-  Widget _buildLanguageSwitcher(WidgetRef ref, String activeLangCode) {
-    const langs = [
-      {'code': 'en', 'label': 'EN'},
-      {'code': 'ru', 'label': 'RU'},
-      {'code': 'uz', 'label': 'UZ'},
-    ];
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.black12, width: 1.5),
-      ),
-      padding: const EdgeInsets.all(4.0),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: langs.map((lang) {
-          final isSelected = lang['code'] == activeLangCode;
-          return GestureDetector(
-            onTap: () {
-              ref.read(localeProvider.notifier).setLanguageCode(lang['code']!);
-            },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: isSelected ? GameTheme.primaryGreen : Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                lang['label']!,
-                style: GoogleFonts.fredoka(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: isSelected ? Colors.white : GameTheme.darkWood,
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
 
   /// Builds a card selector for each character with implicit animations
   Widget _buildCharacterCard(

@@ -49,20 +49,32 @@ void main() {
     // Initially English
     expect(find.text('Select Your Character'), findsOneWidget);
 
-    // Tap 'UZ' language button
-    final uzButton = find.text('UZ');
-    expect(uzButton, findsOneWidget);
-    await tester.tap(uzButton);
+    // Tap 'EN' to open language popup menu
+    final enTrigger = find.text('EN');
+    expect(enTrigger, findsOneWidget);
+    await tester.tap(enTrigger);
+    await tester.pumpAndSettle();
+
+    // Tap 'Oʻzbekcha' menu item
+    final uzItem = find.text('Oʻzbekcha');
+    expect(uzItem, findsOneWidget);
+    await tester.tap(uzItem);
     await tester.pumpAndSettle();
 
     // Text should change to Uzbek
     expect(find.text('Qahramonni tanlang'), findsOneWidget);
     expect(find.text('O\'yinni Boshlash'), findsOneWidget);
 
-    // Tap 'RU' language button
-    final ruButton = find.text('RU');
-    expect(ruButton, findsOneWidget);
-    await tester.tap(ruButton);
+    // Tap 'UZ' to open language popup menu again
+    final uzTrigger = find.text('UZ');
+    expect(uzTrigger, findsOneWidget);
+    await tester.tap(uzTrigger);
+    await tester.pumpAndSettle();
+
+    // Tap 'Русский' menu item
+    final ruItem = find.text('Русский');
+    expect(ruItem, findsOneWidget);
+    await tester.tap(ruItem);
     await tester.pumpAndSettle();
 
     // Text should change to Russian
