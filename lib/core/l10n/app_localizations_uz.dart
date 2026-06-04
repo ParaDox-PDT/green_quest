@@ -30,7 +30,7 @@ class AppLocalizationsUz extends AppLocalizations {
   String get characterBear => 'Ayiqcha';
 
   @override
-  String get characterSquirrel => 'Moshqutvoy';
+  String get characterSquirrel => 'Olmaxoncha';
 
   @override
   String get rollDice => 'Toshni otish';
