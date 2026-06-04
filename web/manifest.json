@@ -1,6 +1,6 @@
 {
-    "name": "green_quest",
-    "short_name": "green_quest",
+    "name": "Green Quest",
+    "short_name": "Green Quest",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

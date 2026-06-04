@@ -75,7 +75,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify Start Game button is initially disabled (opacity is checked implicitly in code, or we can check onPressed callback)
-    final startButtonFinder = find.byType(ElevatedButton);
+    final startButtonFinder = find.byKey(const Key('start_game_button'));
     ElevatedButton startButton = tester.widget<ElevatedButton>(startButtonFinder);
     expect(startButton.onPressed, isNull); // disabled
 

@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -12,9 +13,12 @@ import 'package:green_quest/features/game/presentation/widgets/board_path.dart';
 import 'package:green_quest/features/game/presentation/widgets/animated_dice.dart';
 import 'package:green_quest/features/game/presentation/widgets/player_token.dart';
 import 'package:green_quest/features/game/presentation/game_over_screen.dart';
+import 'package:green_quest/core/services/firebase_service.dart';
+import 'package:green_quest/features/game/domain/providers/multiplayer_provider.dart';
 
 class GameScreen extends ConsumerStatefulWidget {
-  const GameScreen({super.key});
+  final bool isMultiplayer;
+  const GameScreen({super.key, this.isMultiplayer = false});
 
   @override
   ConsumerState<GameScreen> createState() => _GameScreenState();
@@ -27,6 +31,12 @@ class _GameScreenState extends ConsumerState<GameScreen>
   late AnimationController _cameraAnimController;
   Animation<Matrix4>? _cameraAnimation;
   bool _initializedScroll = false;
+
+  // Local state for multiplayer rolling & event displays
+  bool _isLocalRolling = false;
+  int _localDiceValue = 1;
+  String? _localEventType;
+  int? _localEventSpaces;
 
   @override
   void initState() {
@@ -111,48 +121,131 @@ class _GameScreenState extends ConsumerState<GameScreen>
     final gameState = ref.watch(gameStateProvider);
     final selectedChar = ref.watch(selectedCharacterProvider);
     final localizations = AppLocalizations.of(context)!;
+    final mpState = ref.watch(multiplayerProvider);
+    final myUid = ref.watch(firebaseServiceProvider).currentUser?.uid;
 
-    // Listen to changes in game state for navigation and camera follow
-    ref.listen<GameState>(gameStateProvider, (previous, next) {
-      // 1. Navigation to Game Over Screen
-      if (next.isGameOver && !(previous?.isGameOver ?? false)) {
-        Future.delayed(const Duration(milliseconds: 1400), () {
-          if (!context.mounted) return;
-          Navigator.of(context).pushReplacement(
-            PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) => const GameOverScreen(),
-              transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                return FadeTransition(opacity: animation, child: child);
-              },
-              transitionDuration: const Duration(milliseconds: 600),
-            ),
-          );
-        });
-        return;
-      }
+    final activeMap = widget.isMultiplayer ? mpState.activeMap : gameState.activeMap;
 
-      // 2. Camera Auto-Follow
-      if (previous == null) return;
-      
-      if (next.isPlayerTurn && next.playerTile != previous.playerTile) {
-        Future.delayed(const Duration(milliseconds: 250), () {
-          if (mounted) _scrollToTile(next.activeMap, next.playerTile);
-        });
-      } else if (!next.isPlayerTurn && next.rivalTile != previous.rivalTile) {
-        Future.delayed(const Duration(milliseconds: 250), () {
-          if (mounted) _scrollToTile(next.activeMap, next.rivalTile);
-        });
-      } else if (next.isPlayerTurn != previous.isPlayerTurn) {
-        if (mounted) {
-          _scrollToTile(next.activeMap, next.isPlayerTurn ? next.playerTile : next.rivalTile);
+    // Single Player state listener
+    if (!widget.isMultiplayer) {
+      ref.listen<GameState>(gameStateProvider, (previous, next) {
+        if (next.isGameOver && !(previous?.isGameOver ?? false)) {
+          Future.delayed(const Duration(milliseconds: 1400), () {
+            if (!context.mounted) return;
+            Navigator.of(context).pushReplacement(
+              PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) => const GameOverScreen(isMultiplayer: false),
+                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                  return FadeTransition(opacity: animation, child: child);
+                },
+                transitionDuration: const Duration(milliseconds: 600),
+              ),
+            );
+          });
+          return;
         }
-      }
-    });
+
+        if (previous == null) return;
+        if (next.isPlayerTurn && next.playerTile != previous.playerTile) {
+          Future.delayed(const Duration(milliseconds: 250), () {
+            if (mounted) _scrollToTile(next.activeMap, next.playerTile);
+          });
+        } else if (!next.isPlayerTurn && next.rivalTile != previous.rivalTile) {
+          Future.delayed(const Duration(milliseconds: 250), () {
+            if (mounted) _scrollToTile(next.activeMap, next.rivalTile);
+          });
+        } else if (next.isPlayerTurn != previous.isPlayerTurn) {
+          if (mounted) {
+            _scrollToTile(next.activeMap, next.isPlayerTurn ? next.playerTile : next.rivalTile);
+          }
+        }
+      });
+    }
+
+    // Multiplayer state listener
+    if (widget.isMultiplayer) {
+      ref.listen<MultiplayerRoomState>(multiplayerProvider, (previous, next) {
+        if (next.status == 'finished' && previous?.status != 'finished') {
+          Future.delayed(const Duration(milliseconds: 1400), () {
+            if (!context.mounted) return;
+            Navigator.of(context).pushReplacement(
+              PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) => const GameOverScreen(isMultiplayer: true),
+                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                  return FadeTransition(opacity: animation, child: child);
+                },
+                transitionDuration: const Duration(milliseconds: 600),
+              ),
+            );
+          });
+          return;
+        }
+
+        if (previous == null) return;
+
+        // Cleanup disconnected players (host only)
+        if (next.hostId == myUid) {
+          for (var playerId in next.playerOrder) {
+            if (!next.players.containsKey(playerId)) {
+              ref.read(multiplayerProvider.notifier).removeDisconnectedPlayer(playerId);
+            }
+          }
+        }
+
+        // Camera follow & Event banners for other players
+        for (var playerId in next.playerOrder) {
+          if (playerId == myUid) continue;
+          final oldPos = previous.positions[playerId] ?? 1;
+          final newPos = next.positions[playerId] ?? 1;
+
+          if (oldPos != newPos) {
+            Future.delayed(const Duration(milliseconds: 250), () {
+              if (mounted) _scrollToTile(next.activeMap, newPos);
+            });
+
+            // Local banner for other player triggers
+            String? event;
+            if (next.windTiles.containsKey(newPos)) {
+              event = 'wind';
+            } else if (next.fogTiles.containsKey(newPos)) {
+              event = 'fog';
+            } else if (next.napTiles.contains(newPos)) {
+              event = 'nap';
+            } else if (next.cloverTiles.contains(newPos)) {
+              event = 'clover';
+            } else if (next.startTiles.contains(newPos)) {
+              event = 'start';
+            }
+
+            if (event != null) {
+              setState(() {
+                _localEventType = event;
+                _localEventSpaces = event == 'wind' ? next.windTiles[newPos] : (event == 'fog' ? next.fogTiles[newPos] : null);
+              });
+              Future.delayed(const Duration(milliseconds: 2500), () {
+                if (mounted) {
+                  setState(() {
+                    _localEventType = null;
+                    _localEventSpaces = null;
+                  });
+                }
+              });
+            }
+          }
+        }
+
+        // Focus on active player when turn changes
+        if (next.currentTurn != previous.currentTurn && next.currentTurn != null) {
+          final activePos = next.positions[next.currentTurn!] ?? 1;
+          _scrollToTile(next.activeMap, activePos);
+        }
+      });
+    }
 
     // Schedule initial scroll to tile 1 (start position) - instant, no animation
     if (!_initializedScroll) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollToTile(gameState.activeMap, 1, animate: false);
+        _scrollToTile(activeMap, 1, animate: false);
         setState(() {
           _initializedScroll = true;
         });
@@ -195,50 +288,86 @@ class _GameScreenState extends ConsumerState<GameScreen>
             Positioned.fill(
               child: LayoutBuilder(
                 builder: (context, constraints) {
+                  // Group player tokens in multiplayer to avoid overlap
+                  final List<Widget> tokensList = [];
+                  if (widget.isMultiplayer) {
+                    final Map<int, List<String>> tileGroups = {};
+                    for (var playerId in mpState.playerOrder) {
+                      final tile = mpState.positions[playerId] ?? 1;
+                      tileGroups.putIfAbsent(tile, () => []).add(playerId);
+                    }
+
+                    for (var playerId in mpState.playerOrder) {
+                      final player = mpState.players[playerId];
+                      if (player == null) continue;
+
+                      final tile = mpState.positions[playerId] ?? 1;
+                      final group = tileGroups[tile] ?? [];
+                      final int idx = group.indexOf(playerId);
+                      final int count = group.length;
+                      final double offset = count > 1 ? (idx - (count - 1) / 2) * 16.0 : 0.0;
+
+                      tokensList.add(
+                        PlayerToken(
+                          character: player.figure,
+                          tile: tile,
+                          activeMap: mpState.activeMap,
+                          offsetX: offset,
+                        ),
+                      );
+                    }
+                  } else {
+                    final bool sameTile = gameState.playerTile == gameState.rivalTile;
+                    final double playerOffset = sameTile ? -14.0 : 0.0;
+                    final double rivalOffset = sameTile ? 14.0 : 0.0;
+
+                    tokensList.add(
+                      PlayerToken(
+                        character: selectedChar,
+                        tile: gameState.playerTile,
+                        activeMap: gameState.activeMap,
+                        offsetX: playerOffset,
+                      ),
+                    );
+                    tokensList.add(
+                      PlayerToken(
+                        character: null,
+                        tile: gameState.rivalTile,
+                        activeMap: gameState.activeMap,
+                        offsetX: rivalOffset,
+                      ),
+                    );
+                  }
+
                   final boardContent = Container(
-                    width: gameState.activeMap.boardWidth,
-                    height: gameState.activeMap.boardHeight,
+                    width: activeMap.boardWidth,
+                    height: activeMap.boardHeight,
                     margin: const EdgeInsets.symmetric(vertical: 20.0),
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        // Winding Path & Tile Points (passes dynamic boards)
+                        // Winding Path & Tile Points
                         Positioned.fill(
                           child: CustomPaint(
                             painter: BoardPathPainter(
-                              activeMap: gameState.activeMap,
-                              playerTile: gameState.playerTile,
-                              rivalTile: gameState.rivalTile,
-                              windTiles: gameState.windTiles,
-                              fogTiles: gameState.fogTiles,
-                              napTiles: gameState.napTiles,
-                              cloverTiles: gameState.cloverTiles,
-                              startTiles: gameState.startTiles,
+                              activeMap: activeMap,
+                              playerTile: widget.isMultiplayer ? 1 : gameState.playerTile,
+                              rivalTile: widget.isMultiplayer ? 1 : gameState.rivalTile,
+                              windTiles: widget.isMultiplayer ? mpState.windTiles : gameState.windTiles,
+                              fogTiles: widget.isMultiplayer ? mpState.fogTiles : gameState.fogTiles,
+                              napTiles: widget.isMultiplayer ? mpState.napTiles : gameState.napTiles,
+                              cloverTiles: widget.isMultiplayer ? mpState.cloverTiles : gameState.cloverTiles,
+                              startTiles: widget.isMultiplayer ? mpState.startTiles : gameState.startTiles,
                             ),
                           ),
                         ),
-
-                        // Animated Player Token
-                        PlayerToken(
-                          character: selectedChar,
-                          tile: gameState.playerTile,
-                          activeMap: gameState.activeMap,
-                          offsetX: playerOffset,
-                        ),
-
-                        // Animated Rival Token (Rival Crow)
-                        PlayerToken(
-                          character: null, // Draws Rival Crow
-                          tile: gameState.rivalTile,
-                          activeMap: gameState.activeMap,
-                          offsetX: rivalOffset,
-                        ),
+                        ...tokensList,
                       ],
                     ),
                   );
 
                   // If the board fits horizontally, use simple vertical scroll
-                  if (gameState.activeMap.boardWidth <= constraints.maxWidth) {
+                  if (activeMap.boardWidth <= constraints.maxWidth) {
                     return SingleChildScrollView(
                       controller: _scrollController,
                       child: Center(child: boardContent),
@@ -274,19 +403,7 @@ class _GameScreenState extends ConsumerState<GameScreen>
                 ),
                 child: SafeArea(
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Player HUD
-                      _buildHudCard(
-                        name: _getLocalizedCharacterName(context, selectedChar),
-                        tile: gameState.playerTile,
-                        isActive: gameState.isPlayerTurn,
-                        avatar: selectedChar != null
-                            ? CharacterVectorWidget(character: selectedChar, size: 36)
-                            : const SizedBox.shrink(),
-                        isPlayer: true,
-                      ),
-
                       // Back & Help Info Buttons Row
                       Row(
                         mainAxisSize: MainAxisSize.min,
@@ -296,18 +413,53 @@ class _GameScreenState extends ConsumerState<GameScreen>
                           _buildInfoButton(context),
                         ],
                       ),
+                      const Spacer(),
 
-                      // Rival HUD
-                      _buildHudCard(
-                        name: 'Rival Crow',
-                        tile: gameState.rivalTile,
-                        isActive: !gameState.isPlayerTurn,
-                        avatar: CustomPaint(
-                          size: const Size(36, 36),
-                          painter: RivalCrowPainter(),
+                      // Players HUD Cards
+                      if (widget.isMultiplayer)
+                        ...mpState.playerOrder.map((playerId) {
+                          final player = mpState.players[playerId];
+                          if (player == null) return const SizedBox.shrink();
+                          final isCurrentTurn = mpState.currentTurn == playerId;
+                          final tile = mpState.positions[playerId] ?? 1;
+
+                          return Padding(
+                            padding: const EdgeInsets.only(left: 10.0),
+                            child: _buildHudCard(
+                              name: player.name + (playerId == myUid ? ' (You)' : ''),
+                              tile: tile,
+                              isActive: isCurrentTurn,
+                              avatar: player.figure != null
+                                  ? CharacterVectorWidget(character: player.figure!, size: 36)
+                                  : const SizedBox.shrink(),
+                              isPlayer: playerId == myUid,
+                            ),
+                          );
+                        })
+                      else ...[
+                        // Player HUD
+                        _buildHudCard(
+                          name: _getLocalizedCharacterName(context, selectedChar),
+                          tile: gameState.playerTile,
+                          isActive: gameState.isPlayerTurn,
+                          avatar: selectedChar != null
+                              ? CharacterVectorWidget(character: selectedChar, size: 36)
+                              : const SizedBox.shrink(),
+                          isPlayer: true,
                         ),
-                        isPlayer: false,
-                      ),
+                        const SizedBox(width: 16),
+                        // Rival HUD
+                        _buildHudCard(
+                          name: 'Rival Crow',
+                          tile: gameState.rivalTile,
+                          isActive: !gameState.isPlayerTurn,
+                          avatar: CustomPaint(
+                            size: const Size(36, 36),
+                            painter: RivalCrowPainter(),
+                          ),
+                          isPlayer: false,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -315,13 +467,17 @@ class _GameScreenState extends ConsumerState<GameScreen>
             ),
 
             // Floating Event Alert Banner
-            if (gameState.eventType != null)
+            if (widget.isMultiplayer ? _localEventType != null : gameState.eventType != null)
               Positioned(
                 top: 90,
                 left: 0,
                 right: 0,
                 child: Center(
-                  child: _buildEventBanner(gameState.eventType!, gameState.eventSpaces, localizations),
+                  child: _buildEventBanner(
+                    widget.isMultiplayer ? _localEventType! : gameState.eventType!,
+                    widget.isMultiplayer ? _localEventSpaces : gameState.eventSpaces,
+                    localizations,
+                  ),
                 ),
               ),
 
@@ -337,12 +493,22 @@ class _GameScreenState extends ConsumerState<GameScreen>
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: gameState.isPlayerTurn ? GameTheme.primaryGreen : Colors.blueGrey,
+                        color: widget.isMultiplayer
+                            ? (mpState.currentTurn == myUid ? GameTheme.primaryGreen : Colors.blueGrey)
+                            : (gameState.isPlayerTurn ? GameTheme.primaryGreen : Colors.blueGrey),
                         borderRadius: BorderRadius.circular(10),
                         boxShadow: GameTheme.softShadows,
                       ),
                       child: Text(
-                        _getTurnLabel(context, gameState),
+                        widget.isMultiplayer
+                            ? (mpState.currentTurn == myUid
+                                ? (ref.watch(localeProvider).languageCode == 'uz' ? "Sizning navbatingiz" : (ref.watch(localeProvider).languageCode == 'ru' ? "Ваш ход" : "Your Turn"))
+                                : (ref.watch(localeProvider).languageCode == 'uz'
+                                    ? "${mpState.players[mpState.currentTurn]?.name ?? 'Raqib'} navbati"
+                                    : (ref.watch(localeProvider).languageCode == 'ru'
+                                        ? "Ход ${mpState.players[mpState.currentTurn]?.name ?? 'соперника'}"
+                                        : "Turn: ${mpState.players[mpState.currentTurn]?.name ?? 'Player'}")))
+                            : _getTurnLabel(context, gameState),
                         style: GoogleFonts.fredoka(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -354,11 +520,15 @@ class _GameScreenState extends ConsumerState<GameScreen>
                     
                     // Dice Button (guarded against spam taps)
                     AnimatedDice(
-                      value: gameState.diceValue,
-                      isRolling: gameState.isRolling,
-                      onTap: (gameState.isPlayerTurn && !gameState.isRolling && !gameState.isGameOver && !gameState.isProcessingMove)
-                          ? () => ref.read(gameStateProvider.notifier).rollPlayerDice()
-                          : null,
+                      value: widget.isMultiplayer ? _localDiceValue : gameState.diceValue,
+                      isRolling: widget.isMultiplayer ? _isLocalRolling : gameState.isRolling,
+                      onTap: widget.isMultiplayer
+                          ? ((mpState.currentTurn == myUid && !_isLocalRolling && mpState.status == 'playing')
+                              ? () => _rollMultiplayerDice()
+                              : null)
+                          : ((gameState.isPlayerTurn && !gameState.isRolling && !gameState.isGameOver && !gameState.isProcessingMove)
+                              ? () => ref.read(gameStateProvider.notifier).rollPlayerDice()
+                              : null),
                     ),
                   ],
                 ),
@@ -368,6 +538,101 @@ class _GameScreenState extends ConsumerState<GameScreen>
         ),
       ),
     );
+  }
+
+  Future<void> _rollMultiplayerDice() async {
+    final mpState = ref.read(multiplayerProvider);
+    final myUid = ref.read(firebaseServiceProvider).currentUser?.uid;
+    if (mpState.currentTurn != myUid || _isLocalRolling) return;
+
+    setState(() {
+      _isLocalRolling = true;
+      _localEventType = null;
+      _localEventSpaces = null;
+    });
+
+    // 1. Roll animation (1.5s)
+    await Future.delayed(const Duration(milliseconds: 1500));
+
+    final roll = math.Random().nextInt(6) + 1;
+    setState(() {
+      _isLocalRolling = false;
+      _localDiceValue = roll;
+    });
+
+    // 2. Get current position
+    final int currentPos = mpState.positions[myUid] ?? 1;
+    int newTile = currentPos + roll;
+    final totalTiles = mpState.activeMap.totalTiles;
+
+    if (newTile >= totalTiles) {
+      newTile = totalTiles;
+      // Winning move
+      await ref.read(multiplayerProvider.notifier).submitMove(
+        newPosition: newTile,
+        getsExtraTurn: false,
+        skipsNextTurn: false,
+      );
+      return;
+    }
+
+    // Wait for the token jumping animation (approx 220ms per tile + settle)
+    await Future.delayed(Duration(milliseconds: roll * 220 + 200));
+
+    // 3. Handle special tiles
+    bool getsExtraTurn = false;
+    bool skipsNextTurn = false;
+
+    if (mpState.windTiles.containsKey(newTile)) {
+      final spaces = mpState.windTiles[newTile]!;
+      setState(() {
+        _localEventType = 'wind';
+        _localEventSpaces = spaces;
+      });
+      await Future.delayed(const Duration(milliseconds: 1500));
+      newTile = (newTile + spaces).clamp(1, totalTiles);
+      await Future.delayed(Duration(milliseconds: spaces * 220 + 200));
+    } else if (mpState.fogTiles.containsKey(newTile)) {
+      final spaces = mpState.fogTiles[newTile]!;
+      setState(() {
+        _localEventType = 'fog';
+        _localEventSpaces = spaces;
+      });
+      await Future.delayed(const Duration(milliseconds: 1500));
+      newTile = (newTile - spaces).clamp(1, totalTiles);
+      await Future.delayed(Duration(milliseconds: spaces * 220 + 200));
+    } else if (mpState.napTiles.contains(newTile)) {
+      setState(() {
+        _localEventType = 'nap';
+      });
+      skipsNextTurn = true;
+      await Future.delayed(const Duration(milliseconds: 1500));
+    } else if (mpState.cloverTiles.contains(newTile)) {
+      setState(() {
+        _localEventType = 'clover';
+      });
+      getsExtraTurn = true;
+      await Future.delayed(const Duration(milliseconds: 1500));
+    } else if (mpState.startTiles.contains(newTile)) {
+      setState(() {
+        _localEventType = 'start';
+      });
+      newTile = 1;
+      await Future.delayed(const Duration(milliseconds: 1500));
+    }
+
+    // 4. Submit move to Firebase
+    await ref.read(multiplayerProvider.notifier).submitMove(
+      newPosition: newTile,
+      getsExtraTurn: getsExtraTurn,
+      skipsNextTurn: skipsNextTurn,
+    );
+
+    // Clear event banner
+    setState(() {
+      _localEventType = null;
+      _localEventSpaces = null;
+    });
   }
 
   Widget _buildHudCard({
@@ -495,8 +760,12 @@ class _GameScreenState extends ConsumerState<GameScreen>
                   ElevatedButton(
                     onPressed: () {
                       Navigator.of(context).pop(); // pop dialog
-                      ref.read(selectedCharacterProvider.notifier).state = null;
-                      ref.read(gameStateProvider.notifier).resetGame();
+                      if (widget.isMultiplayer) {
+                        ref.read(multiplayerProvider.notifier).leaveRoom();
+                      } else {
+                        ref.read(selectedCharacterProvider.notifier).state = null;
+                        ref.read(gameStateProvider.notifier).resetGame();
+                      }
                       Navigator.of(context).pop(); // pop game screen
                     },
                     style: ElevatedButton.styleFrom(backgroundColor: GameTheme.woodBrown),

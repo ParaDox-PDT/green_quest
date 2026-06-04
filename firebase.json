@@ -1,0 +1,26 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "green-quest-a550a",
+          "appId": "1:557244960723:android:916fa72d65680784036926",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "green-quest-a550a",
+          "configurations": {
+            "android": "1:557244960723:android:916fa72d65680784036926",
+            "ios": "1:557244960723:ios:1caf37f9624f490e036926",
+            "web": "1:557244960723:web:3f77c8fa91835e59036926"
+          }
+        }
+      }
+    }
+  },
+  "database": {
+    "rules": "database.rules.json"
+  }
+}

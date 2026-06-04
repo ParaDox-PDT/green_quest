@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "557244960723",
+    "firebase_url": "https://green-quest-a550a-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "green-quest-a550a",
+    "storage_bucket": "green-quest-a550a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:557244960723:android:916fa72d65680784036926",
+        "android_client_info": {
+          "package_name": "com.antigravity.greenquest.green_quest"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBwXMosld3w8RCj8wLNkCW_Cwmq3P0iDB8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

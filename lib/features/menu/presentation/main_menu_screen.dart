@@ -9,6 +9,7 @@ import 'package:green_quest/features/menu/domain/providers/character_provider.da
 import 'package:green_quest/features/menu/presentation/widgets/character_painters.dart';
 import 'package:green_quest/features/game/presentation/game_screen.dart';
 import 'package:green_quest/core/l10n/app_localizations.dart';
+import 'package:green_quest/features/menu/presentation/multiplayer_setup_screen.dart';
 
 class MainMenuScreen extends ConsumerWidget {
   const MainMenuScreen({super.key});
@@ -67,72 +68,98 @@ class MainMenuScreen extends ConsumerWidget {
                       // LEFT COLUMN: Title Banner & Language Selection
                       Expanded(
                         flex: 4,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // App Title with playful dropshadow
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                localizations.appTitle,
-                                maxLines: 1,
-                                style: GoogleFonts.fredoka(
-                                  fontSize: 38,
-                                  fontWeight: FontWeight.bold,
-                                  color: GameTheme.darkGreen,
-                                  shadows: [
-                                    Shadow(
-                                      color: Colors.black.withValues(alpha: 0.12),
-                                      offset: const Offset(0, 4),
-                                      blurRadius: 4,
-                                    ),
-                                  ],
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final double logoHeight = constraints.maxHeight > 500 ? 70.0 : 40.0;
+                            final double topSpacer = constraints.maxHeight > 500 ? 12.0 : 6.0;
+                            final double titleSubtitleSpacer = constraints.maxHeight > 500 ? 8.0 : 4.0;
+                            final double midSpacer = constraints.maxHeight > 500 ? 28.0 : 12.0;
+                            final double sectionSpacer = constraints.maxHeight > 500 ? 20.0 : 10.0;
+
+                            return SingleChildScrollView(
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minHeight: constraints.maxHeight,
+                                ),
+                                child: IntrinsicHeight(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      // App Logo Image
+                                      Image.asset(
+                                        'assets/images/app_logo.png',
+                                        height: logoHeight,
+                                        fit: BoxFit.contain,
+                                      ),
+                                      SizedBox(height: topSpacer),
+                                      // App Title with playful dropshadow
+                                      FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment: Alignment.centerLeft,
+                                        child: Text(
+                                          localizations.appTitle,
+                                          maxLines: 1,
+                                          style: GoogleFonts.fredoka(
+                                            fontSize: 38,
+                                            fontWeight: FontWeight.bold,
+                                            color: GameTheme.darkGreen,
+                                            shadows: [
+                                              Shadow(
+                                                color: Colors.black.withValues(alpha: 0.12),
+                                                offset: const Offset(0, 4),
+                                                blurRadius: 4,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(height: titleSubtitleSpacer),
+                                      // Subtitle or description
+                                      Text(
+                                        'Forest Roll-and-Move Game',
+                                        style: GoogleFonts.fredoka(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                          color: GameTheme.darkWood.withValues(alpha: 0.7),
+                                        ),
+                                      ),
+                                      SizedBox(height: midSpacer),
+                                      // Custom Language Switcher Label
+                                      Text(
+                                        localizations.selectLanguage,
+                                        style: GoogleFonts.fredoka(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: GameTheme.darkWood,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      // Language Switcher Custom Capsule Row
+                                      _buildLanguageSwitcher(ref, activeLocale.languageCode),
+                                      SizedBox(height: sectionSpacer),
+                                      Text(
+                                        activeLocale.languageCode == 'uz'
+                                            ? 'Xaritani Tanlash'
+                                            : (activeLocale.languageCode == 'ru'
+                                                ? 'Выбор Карты'
+                                                : 'Select Map'),
+                                        style: GoogleFonts.fredoka(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: GameTheme.darkWood,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      _buildMapSelectionList(ref, activeLocale.languageCode),
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            // Subtitle or description
-                            Text(
-                              'Forest Roll-and-Move Game',
-                              style: GoogleFonts.fredoka(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: GameTheme.darkWood.withValues(alpha: 0.7),
-                              ),
-                            ),
-                            const SizedBox(height: 32),
-                            // Custom Language Switcher Label
-                            Text(
-                              localizations.selectLanguage,
-                              style: GoogleFonts.fredoka(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: GameTheme.darkWood,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            // Language Switcher Custom Capsule Row
-                             _buildLanguageSwitcher(ref, activeLocale.languageCode),
-                             const SizedBox(height: 24),
-                             Text(
-                               activeLocale.languageCode == 'uz'
-                                   ? 'Xaritani Tanlash'
-                                   : (activeLocale.languageCode == 'ru'
-                                       ? 'Выбор Карты'
-                                       : 'Select Map'),
-                               style: GoogleFonts.fredoka(
-                                 fontSize: 16,
-                                 fontWeight: FontWeight.w600,
-                                 color: GameTheme.darkWood,
-                               ),
-                             ),
-                             const SizedBox(height: 8),
-                             _buildMapSelectionList(ref, activeLocale.languageCode),
-                           ],
-                         ),
-                       ),
+                            );
+                          },
+                        ),
+                      ),
 
                       // VERTICAL SEPARATOR LINE
                       Container(
@@ -173,16 +200,26 @@ class MainMenuScreen extends ConsumerWidget {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            // Start Game Button with animated scaling entry
-                            AnimatedScale(
-                              scale: selectedChar != null ? 1.0 : 0.85,
-                              duration: const Duration(milliseconds: 200),
-                              curve: Curves.easeOutBack,
-                              child: AnimatedOpacity(
-                                opacity: selectedChar != null ? 1.0 : 0.4,
-                                duration: const Duration(milliseconds: 200),
-                                 child: _buildPlayButton(context, ref, selectedChar, localizations),
-                              ),
+                            // Action Buttons Wrap (Single Player & Multiplayer)
+                            Wrap(
+                              alignment: WrapAlignment.center,
+                              spacing: 16,
+                              runSpacing: 12,
+                              children: [
+                                // Start Game Button (Single Player)
+                                AnimatedScale(
+                                  scale: selectedChar != null ? 1.0 : 0.85,
+                                  duration: const Duration(milliseconds: 200),
+                                  curve: Curves.easeOutBack,
+                                  child: AnimatedOpacity(
+                                    opacity: selectedChar != null ? 1.0 : 0.4,
+                                    duration: const Duration(milliseconds: 200),
+                                    child: _buildPlayButton(context, ref, selectedChar, localizations),
+                                  ),
+                                ),
+                                // Multiplayer Button
+                                _buildMultiplayerButton(context, ref, activeLocale.languageCode),
+                              ],
                             ),
                           ],
                         ),
@@ -328,6 +365,7 @@ class MainMenuScreen extends ConsumerWidget {
             : null,
       ),
       child: ElevatedButton(
+        key: const Key('start_game_button'),
         onPressed: active
             ? () {
                 // Initialize the game with the selected map before entering the screen
@@ -365,6 +403,50 @@ class MainMenuScreen extends ConsumerWidget {
             Text(localizations.startGame),
             const SizedBox(width: 8),
             const Icon(Icons.play_arrow_rounded, size: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMultiplayerButton(BuildContext context, WidgetRef ref, String langCode) {
+    String label = 'Multiplayer';
+    if (langCode == 'uz') {
+      label = 'Koʻp oʻyinchi';
+    } else if (langCode == 'ru') {
+      label = 'Мультиплеер';
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: GameTheme.primaryGreen.withValues(alpha: 0.3),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          )
+        ],
+      ),
+      child: ElevatedButton(
+        key: const Key('multiplayer_button'),
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const MultiplayerSetupScreen(),
+            ),
+          );
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: GameTheme.primaryGreen,
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label),
+            const SizedBox(width: 8),
+            const Icon(Icons.people_alt_rounded, size: 24),
           ],
         ),
       ),

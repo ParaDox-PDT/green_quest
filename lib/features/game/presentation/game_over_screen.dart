@@ -8,9 +8,13 @@ import 'package:green_quest/features/menu/domain/providers/character_provider.da
 import 'package:green_quest/features/menu/presentation/widgets/character_painters.dart';
 import 'package:green_quest/features/game/domain/providers/game_provider.dart';
 import 'package:green_quest/features/game/presentation/game_screen.dart';
+import 'package:green_quest/features/game/domain/providers/multiplayer_provider.dart';
+import 'package:green_quest/core/services/firebase_service.dart';
+import 'package:green_quest/core/providers/locale_provider.dart';
 
 class GameOverScreen extends ConsumerStatefulWidget {
-  const GameOverScreen({super.key});
+  final bool isMultiplayer;
+  const GameOverScreen({super.key, this.isMultiplayer = false});
 
   @override
   ConsumerState<GameOverScreen> createState() => _GameOverScreenState();
@@ -56,8 +60,18 @@ class _GameOverScreenState extends ConsumerState<GameOverScreen> with TickerProv
   Widget build(BuildContext context) {
     final selectedChar = ref.watch(selectedCharacterProvider);
     final gameState = ref.read(gameStateProvider);
+    final mpState = ref.watch(multiplayerProvider);
+    final myUid = ref.watch(firebaseServiceProvider).currentUser?.uid;
     final localizations = AppLocalizations.of(context)!;
-    final isVictory = gameState.isVictory;
+
+    final String? winnerId = widget.isMultiplayer && mpState.playerOrder.isNotEmpty
+        ? mpState.playerOrder.reduce((curr, next) => (mpState.positions[curr] ?? 1) > (mpState.positions[next] ?? 1) ? curr : next)
+        : null;
+    final winnerPlayer = winnerId != null ? mpState.players[winnerId] : null;
+
+    final bool isVictory = widget.isMultiplayer
+        ? (winnerId == myUid)
+        : gameState.isVictory;
 
     final themeColor = isVictory ? GameTheme.primaryGreen : Colors.blueGrey;
     final cardBgColor = Colors.white.withValues(alpha: 0.9);
@@ -141,7 +155,19 @@ class _GameOverScreenState extends ConsumerState<GameOverScreen> with TickerProv
                         
                         // Message
                         Text(
-                          isVictory ? localizations.victoryMessage : localizations.defeatMessage,
+                          widget.isMultiplayer
+                              ? (isVictory
+                                  ? (ref.watch(localeProvider).languageCode == 'uz'
+                                      ? "Siz oʻrmon chempioni boʻldingiz! Sarguzasht muvaffaqiyatli yakunlandi."
+                                      : (ref.watch(localeProvider).languageCode == 'ru'
+                                          ? "Вы чемпион леса! Квест успешно пройден."
+                                          : "You are the Forest Champion! Quest completed successfully."))
+                                  : (ref.watch(localeProvider).languageCode == 'uz'
+                                      ? "Gʻolib: ${winnerPlayer?.name ?? 'Raqib'}"
+                                      : (ref.watch(localeProvider).languageCode == 'ru'
+                                          ? "Победитель: ${winnerPlayer?.name ?? 'Соперник'}"
+                                          : "Winner: ${winnerPlayer?.name ?? 'Rival'}")))
+                              : (isVictory ? localizations.victoryMessage : localizations.defeatMessage),
                           textAlign: TextAlign.center,
                           style: GoogleFonts.fredoka(
                             fontSize: 16,
@@ -151,16 +177,117 @@ class _GameOverScreenState extends ConsumerState<GameOverScreen> with TickerProv
                         ),
                         const SizedBox(height: 20),
 
-                        // Large character graphics
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            if (selectedChar != null) ...[
+                        // Placements/Leaderboard
+                        if (widget.isMultiplayer)
+                          Container(
+                            height: 120,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: () {
+                                final sortedPlayers = List<String>.from(mpState.playerOrder)
+                                  ..sort((a, b) => (mpState.positions[b] ?? 1).compareTo(mpState.positions[a] ?? 1));
+
+                                return sortedPlayers.asMap().entries.map((entry) {
+                                  final index = entry.key;
+                                  final playerId = entry.value;
+                                  final player = mpState.players[playerId];
+                                  final pos = mpState.positions[playerId] ?? 1;
+
+                                  if (player == null) return const SizedBox.shrink();
+
+                                  final medalColor = index == 0
+                                      ? const Color(0xFFFFD700)
+                                      : (index == 1
+                                          ? const Color(0xFFC0C0C0)
+                                          : (index == 2
+                                              ? const Color(0xFFCD7F32)
+                                              : Colors.grey.shade400));
+
+                                  return Container(
+                                    margin: const EdgeInsets.symmetric(horizontal: 6),
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(color: medalColor, width: 2),
+                                      boxShadow: GameTheme.softShadows,
+                                    ),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          "${index + 1}-oʻrin",
+                                          style: GoogleFonts.fredoka(
+                                            fontWeight: FontWeight.bold,
+                                            color: medalColor,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        if (player.figure != null)
+                                          CharacterVectorWidget(character: player.figure!, size: 30)
+                                        else
+                                          const Icon(Icons.person, size: 30),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          player.name,
+                                          style: GoogleFonts.fredoka(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: GameTheme.darkWood,
+                                          ),
+                                        ),
+                                        Text(
+                                          "Katak: $pos",
+                                          style: TextStyle(
+                                            fontSize: 9,
+                                            color: Colors.grey.shade600,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList();
+                              }(),
+                            ),
+                          )
+                        else
+                          // Large character graphics (Single Player)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              if (selectedChar != null) ...[
+                                Column(
+                                  children: [
+                                    Text(
+                                      isVictory ? 'Hero' : 'Oops!',
+                                      style: GoogleFonts.fredoka(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: GameTheme.darkWood,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Transform.scale(
+                                      scale: isVictory ? 1.1 : 0.9,
+                                      child: Opacity(
+                                        opacity: isVictory ? 1.0 : 0.6,
+                                        child: CharacterVectorWidget(
+                                          character: selectedChar,
+                                          size: 90,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(width: 48),
+                              ],
                               Column(
                                 children: [
                                   Text(
-                                    isVictory ? 'Hero' : 'Oops!',
+                                    isVictory ? 'Rival' : 'Winner!',
                                     style: GoogleFonts.fredoka(
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,
@@ -169,86 +296,60 @@ class _GameOverScreenState extends ConsumerState<GameOverScreen> with TickerProv
                                   ),
                                   const SizedBox(height: 6),
                                   Transform.scale(
-                                    scale: isVictory ? 1.1 : 0.9,
+                                    scale: isVictory ? 0.8 : 1.15,
                                     child: Opacity(
-                                      opacity: isVictory ? 1.0 : 0.6,
-                                      child: CharacterVectorWidget(
-                                        character: selectedChar,
-                                        size: 90,
+                                      opacity: isVictory ? 0.5 : 1.0,
+                                      child: CustomPaint(
+                                        size: const Size(90, 90),
+                                        painter: RivalCrowPainter(),
                                       ),
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(width: 48),
                             ],
-                            Column(
-                              children: [
-                                Text(
-                                  isVictory ? 'Rival' : 'Winner!',
-                                  style: GoogleFonts.fredoka(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: GameTheme.darkWood,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Transform.scale(
-                                  scale: isVictory ? 0.8 : 1.15,
-                                  child: Opacity(
-                                    opacity: isVictory ? 0.5 : 1.0,
-                                    child: CustomPaint(
-                                      size: const Size(90, 90),
-                                      painter: RivalCrowPainter(),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
+                          ),
                         const SizedBox(height: 28),
 
                         // Action Buttons
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
-                            // Play Again
-                            _buildActionButton(
-                              context: context,
-                              label: localizations.playAgain,
-                              icon: Icons.replay_rounded,
-                              color: GameTheme.primaryGreen,
-                              onPressed: () {
-                                // Reset game state
-                                ref.read(gameStateProvider.notifier).resetGame();
-                                
-                                // Restart GameScreen
-                                Navigator.of(context).pushReplacement(
-                                  PageRouteBuilder(
-                                    pageBuilder: (context, animation, secondaryAnimation) => const GameScreen(),
-                                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                      return FadeTransition(opacity: animation, child: child);
-                                    },
-                                    transitionDuration: const Duration(milliseconds: 500),
-                                  ),
-                                );
-                              },
-                            ),
-                            
-                            // Main Menu
+                            if (!widget.isMultiplayer)
+                              // Play Again (Single Player Only)
+                              _buildActionButton(
+                                context: context,
+                                label: localizations.playAgain,
+                                icon: Icons.replay_rounded,
+                                color: GameTheme.primaryGreen,
+                                onPressed: () {
+                                  ref.read(gameStateProvider.notifier).resetGame();
+                                  Navigator.of(context).pushReplacement(
+                                    PageRouteBuilder(
+                                      pageBuilder: (context, animation, secondaryAnimation) => const GameScreen(),
+                                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                        return FadeTransition(opacity: animation, child: child);
+                                      },
+                                      transitionDuration: const Duration(milliseconds: 500),
+                                    ),
+                                  );
+                                },
+                              ),
+
+                            // Main Menu (Both modes)
                             _buildActionButton(
                               context: context,
                               label: localizations.mainMenu,
                               icon: Icons.home_rounded,
                               color: GameTheme.woodBrown,
                               onPressed: () {
-                                // Reset game state and character
-                                ref.read(gameStateProvider.notifier).resetGame();
-                                ref.read(selectedCharacterProvider.notifier).state = null;
-                                
-                                // Return to Main Menu
-                                Navigator.of(context).pop();
+                                if (widget.isMultiplayer) {
+                                  ref.read(multiplayerProvider.notifier).leaveRoom();
+                                } else {
+                                  ref.read(gameStateProvider.notifier).resetGame();
+                                  ref.read(selectedCharacterProvider.notifier).state = null;
+                                }
+                                Navigator.of(context).pop(); // pop GameOverScreen
                               },
                             ),
                           ],

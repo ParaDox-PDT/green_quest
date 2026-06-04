@@ -6,6 +6,7 @@ import 'package:green_quest/core/l10n/app_localizations.dart';
 import 'package:green_quest/app/theme/theme.dart';
 import 'package:green_quest/core/providers/locale_provider.dart';
 import 'package:green_quest/features/splash/presentation/splash_screen.dart';
+import 'package:green_quest/core/services/firebase_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,9 +20,15 @@ void main() async {
   // Enforce full-screen sticky immersive mode (hides system bars)
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
+  final container = ProviderContainer();
+  final firebaseService = container.read(firebaseServiceProvider);
+  await firebaseService.init();
+  await firebaseService.signInAnonymously();
+
   runApp(
-    const ProviderScope(
-      child: GreenQuestApp(),
+    UncontrolledProviderScope(
+      container: container,
+      child: const GreenQuestApp(),
     ),
   );
 }
