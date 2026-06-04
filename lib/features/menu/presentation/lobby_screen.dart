@@ -325,94 +325,30 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                       ),
                       const SizedBox(height: 12),
 
-                      // Characters grid / row
+                      // Characters grid / row (2x2 layout that dynamically scales to avoid scroll)
                       Expanded(
-                        child: GridView.count(
-                          crossAxisCount: 2,
-                          childAspectRatio: 1.3,
-                          mainAxisSpacing: 12,
-                          crossAxisSpacing: 12,
-                          children: GameCharacter.values.map((char) {
-                            final chosenByUid = mpState.selectedFigures[char.name];
-                            final isTaken = chosenByUid != null;
-                            final isTakenByMe = chosenByUid == myUid;
-                            final ownerName = isTaken ? mpState.players[chosenByUid]?.name ?? 'Player' : '';
-
-                            return GestureDetector(
-                              onTap: isTaken && !isTakenByMe
-                                  ? null
-                                  : () => ref.read(multiplayerProvider.notifier).selectCharacter(char),
-                              child: Opacity(
-                                opacity: isTaken && !isTakenByMe ? 0.4 : 1.0,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                      color: isTakenByMe
-                                          ? Color(char.colorHex)
-                                          : (isTaken ? Colors.black12 : Colors.grey.shade300),
-                                      width: isTakenByMe ? 3 : 1.5,
-                                    ),
-                                    boxShadow: isTakenByMe
-                                        ? [
-                                            BoxShadow(
-                                              color: Color(char.colorHex).withValues(alpha: 0.2),
-                                              blurRadius: 8,
-                                              offset: const Offset(0, 2),
-                                            )
-                                          ]
-                                        : null,
-                                  ),
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: Stack(
-                                    children: [
-                                      Positioned.fill(
-                                        child: Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Expanded(
-                                              child: CharacterVectorWidget(character: char, size: 45),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              char.name.toUpperCase(),
-                                              style: GoogleFonts.fredoka(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.bold,
-                                                color: GameTheme.darkWood,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      // Taken badge
-                                      if (isTaken)
-                                        Positioned(
-                                          top: 0,
-                                          right: 0,
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: isTakenByMe ? GameTheme.primaryGreen : Colors.blueGrey,
-                                              borderRadius: BorderRadius.circular(6),
-                                            ),
-                                            child: Text(
-                                              isTakenByMe ? 'YOU' : ownerName,
-                                              style: const TextStyle(
-                                                fontSize: 8,
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
+                        child: Column(
+                          children: [
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Expanded(child: _buildCharacterSelectionCard(ref, GameCharacter.fox, mpState, myUid)),
+                                  const SizedBox(width: 12),
+                                  Expanded(child: _buildCharacterSelectionCard(ref, GameCharacter.rabbit, mpState, myUid)),
+                                ],
                               ),
-                            );
-                          }).toList(),
+                            ),
+                            const SizedBox(height: 12),
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Expanded(child: _buildCharacterSelectionCard(ref, GameCharacter.bear, mpState, myUid)),
+                                  const SizedBox(width: 12),
+                                  Expanded(child: _buildCharacterSelectionCard(ref, GameCharacter.squirrel, mpState, myUid)),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -532,6 +468,93 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
           ),
         );
       }).toList(),
+    );
+  }
+
+  Widget _buildCharacterSelectionCard(
+    WidgetRef ref,
+    GameCharacter char,
+    MultiplayerRoomState mpState,
+    String? myUid,
+  ) {
+    final chosenByUid = mpState.selectedFigures[char.name];
+    final isTaken = chosenByUid != null;
+    final isTakenByMe = chosenByUid == myUid;
+    final ownerName = isTaken ? mpState.players[chosenByUid]?.name ?? 'Player' : '';
+
+    return GestureDetector(
+      onTap: isTaken && !isTakenByMe
+          ? null
+          : () => ref.read(multiplayerProvider.notifier).selectCharacter(char),
+      child: Opacity(
+        opacity: isTaken && !isTakenByMe ? 0.4 : 1.0,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isTakenByMe
+                  ? Color(char.colorHex)
+                  : (isTaken ? Colors.black12 : Colors.grey.shade300),
+              width: isTakenByMe ? 3 : 1.5,
+            ),
+            boxShadow: isTakenByMe
+                ? [
+                    BoxShadow(
+                      color: Color(char.colorHex).withValues(alpha: 0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    )
+                  ]
+                : null,
+          ),
+          padding: const EdgeInsets.all(8.0),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: CharacterVectorWidget(character: char, size: 45),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      char.name.toUpperCase(),
+                      style: GoogleFonts.fredoka(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: GameTheme.darkWood,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Taken badge
+              if (isTaken)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: isTakenByMe ? GameTheme.primaryGreen : Colors.blueGrey,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      isTakenByMe ? 'YOU' : ownerName,
+                      style: const TextStyle(
+                        fontSize: 8,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
