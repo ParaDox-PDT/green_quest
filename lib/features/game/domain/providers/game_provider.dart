@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:green_quest/features/game/domain/models/game_map.dart';
 
 /// Represents the active state of the Green Quest game.
 class GameState {
@@ -20,6 +21,7 @@ class GameState {
   final Set<int> napTiles;
   final Set<int> cloverTiles;
   final Set<int> startTiles; // Contains the return to start tile
+  final GameMap activeMap;
 
   const GameState({
     this.playerTile = 1,
@@ -37,6 +39,7 @@ class GameState {
     this.napTiles = const {},
     this.cloverTiles = const {},
     this.startTiles = const {},
+    this.activeMap = GameMap.defaultMap,
   });
 
   GameState copyWith({
@@ -55,6 +58,7 @@ class GameState {
     Set<int>? napTiles,
     Set<int>? cloverTiles,
     Set<int>? startTiles,
+    GameMap? activeMap,
     bool clearEvent = false,
   }) {
     return GameState(
@@ -73,6 +77,7 @@ class GameState {
       napTiles: napTiles ?? this.napTiles,
       cloverTiles: cloverTiles ?? this.cloverTiles,
       startTiles: startTiles ?? this.startTiles,
+      activeMap: activeMap ?? this.activeMap,
     );
   }
 }
@@ -90,15 +95,16 @@ class GameNotifier extends StateNotifier<GameState> {
   bool _rivalSkipsNextTurn = false;
 
   /// Resets the game and generates a fresh dynamic board layout
-  void resetGame() {
-    state = const GameState();
+  void resetGame({GameMap? map}) {
+    final GameMap activeMap = map ?? state.activeMap;
+    state = GameState(activeMap: activeMap);
     _playerSkipsNextTurn = false;
     _rivalSkipsNextTurn = false;
-    _generateRandomBoard();
+    _generateRandomBoard(activeMap);
   }
 
   /// Generates non-adjacent, randomized special tiles for the current match
-  void _generateRandomBoard() {
+  void _generateRandomBoard(GameMap map) {
     final Map<int, int> wind = {};
     final Map<int, int> fog = {};
     final Set<int> nap = {};
@@ -106,9 +112,12 @@ class GameNotifier extends StateNotifier<GameState> {
     final Set<int> start = {};
 
     final Set<int> taken = {};
+    final int total = map.totalTiles;
 
-    // 1. Place exactly 1 "Return-To-Start" hazard tile in the late-game range (70 to 90)
-    final startTilePos = 70 + _random.nextInt(18); // 70 to 87
+    // 1. Place exactly 1 "Return-To-Start" hazard tile in the late-game range (70% to 90% of total tiles)
+    final int minStart = (total * 0.7).toInt();
+    final int maxStart = (total * 0.9).toInt();
+    final startTilePos = minStart + _random.nextInt(maxStart - minStart);
     start.add(startTilePos);
     taken.add(startTilePos);
     taken.add(startTilePos - 1);
@@ -117,23 +126,41 @@ class GameNotifier extends StateNotifier<GameState> {
     // Helper to find a free tile that is not adjacent to any taken tile
     int getFreeTile() {
       int attempts = 0;
+      final int maxPlayRange = total - 5;
       while (attempts < 500) {
-        // Safe play range: tiles 8 to 95
-        final tile = 8 + _random.nextInt(87);
+        // Safe play range: tiles 8 to maxPlayRange
+        final tile = 8 + _random.nextInt(maxPlayRange - 8);
         if (!taken.contains(tile) && !taken.contains(tile - 1) && !taken.contains(tile + 1)) {
           return tile;
         }
         attempts++;
       }
       // Fallback: any untaken tile
-      for (int tile = 8; tile <= 95; tile++) {
+      for (int tile = 8; tile <= maxPlayRange; tile++) {
         if (!taken.contains(tile)) return tile;
       }
       return 8;
     }
 
-    // 2. Place 5 Wind tiles (advance 3 to 6 spaces)
-    for (int i = 0; i < 5; i++) {
+    // Scale number of special tiles based on total size
+    int numWind = 5;
+    int numFog = 5;
+    int numNap = 5;
+    int numClover = 4;
+    if (total == 125) {
+      numWind = 6;
+      numFog = 6;
+      numNap = 6;
+      numClover = 5;
+    } else if (total == 150) {
+      numWind = 7;
+      numFog = 7;
+      numNap = 7;
+      numClover = 6;
+    }
+
+    // 2. Place Wind tiles (advance 3 to 6 spaces)
+    for (int i = 0; i < numWind; i++) {
       final tile = getFreeTile();
       wind[tile] = 3 + _random.nextInt(4); // advance 3..6
       taken.add(tile);
@@ -141,8 +168,8 @@ class GameNotifier extends StateNotifier<GameState> {
       taken.add(tile + 1);
     }
 
-    // 3. Place 5 Fog tiles (back 3 to 6 spaces)
-    for (int i = 0; i < 5; i++) {
+    // 3. Place Fog tiles (back 3 to 6 spaces)
+    for (int i = 0; i < numFog; i++) {
       final tile = getFreeTile();
       fog[tile] = 3 + _random.nextInt(4); // back 3..6
       taken.add(tile);
@@ -150,8 +177,8 @@ class GameNotifier extends StateNotifier<GameState> {
       taken.add(tile + 1);
     }
 
-    // 4. Place 5 Nap tiles (skip turn)
-    for (int i = 0; i < 5; i++) {
+    // 4. Place Nap tiles (skip turn)
+    for (int i = 0; i < numNap; i++) {
       final tile = getFreeTile();
       nap.add(tile);
       taken.add(tile);
@@ -159,8 +186,8 @@ class GameNotifier extends StateNotifier<GameState> {
       taken.add(tile + 1);
     }
 
-    // 5. Place 4 Clover tiles (extra turn)
-    for (int i = 0; i < 4; i++) {
+    // 5. Place Clover tiles (extra turn)
+    for (int i = 0; i < numClover; i++) {
       final tile = getFreeTile();
       clover.add(tile);
       taken.add(tile);
@@ -194,8 +221,8 @@ class GameNotifier extends StateNotifier<GameState> {
 
     // Calculate next tile
     int newTile = state.playerTile + roll;
-    if (newTile >= 100) {
-      newTile = 100;
+    if (newTile >= state.activeMap.totalTiles) {
+      newTile = state.activeMap.totalTiles;
       state = state.copyWith(
         playerTile: newTile,
         isGameOver: true,
@@ -260,8 +287,8 @@ class GameNotifier extends StateNotifier<GameState> {
     state = state.copyWith(isRolling: false, diceValue: roll);
 
     int newTile = state.rivalTile + roll;
-    if (newTile >= 100) {
-      newTile = 100;
+    if (newTile >= state.activeMap.totalTiles) {
+      newTile = state.activeMap.totalTiles;
       state = state.copyWith(
         rivalTile: newTile,
         isGameOver: true,
@@ -313,7 +340,7 @@ class GameNotifier extends StateNotifier<GameState> {
       // Wind: Advance X spaces
       final spaces = state.windTiles[tile]!;
       int target = tile + spaces;
-      if (target >= 100) target = 100;
+      if (target >= state.activeMap.totalTiles) target = state.activeMap.totalTiles;
 
       state = state.copyWith(eventType: 'wind', eventSpaces: spaces);
       await Future.delayed(const Duration(milliseconds: 1500));
@@ -327,7 +354,7 @@ class GameNotifier extends StateNotifier<GameState> {
       // Wait for second jump animation
       await Future.delayed(Duration(milliseconds: spaces * 220 + 200));
 
-      if (target == 100) {
+      if (target == state.activeMap.totalTiles) {
         state = state.copyWith(isGameOver: true, isVictory: isPlayer);
       }
     } else if (state.fogTiles.containsKey(tile)) {
@@ -380,4 +407,9 @@ class GameNotifier extends StateNotifier<GameState> {
 /// Provider to access game state and trigger moves
 final gameStateProvider = StateNotifierProvider<GameNotifier, GameState>((ref) {
   return GameNotifier();
+});
+
+/// Provider to track the user's selected map in the main menu
+final selectedMapProvider = StateProvider<GameMap>((ref) {
+  return GameMap.availableMaps[0];
 });

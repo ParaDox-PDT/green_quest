@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:green_quest/app/theme/theme.dart';
 import 'package:green_quest/core/providers/locale_provider.dart';
+import 'package:green_quest/features/game/domain/models/game_map.dart';
+import 'package:green_quest/features/game/domain/providers/game_provider.dart';
 import 'package:green_quest/features/menu/domain/providers/character_provider.dart';
 import 'package:green_quest/features/menu/presentation/widgets/character_painters.dart';
 import 'package:green_quest/features/game/presentation/game_screen.dart';
@@ -112,10 +114,25 @@ class MainMenuScreen extends ConsumerWidget {
                             ),
                             const SizedBox(height: 8),
                             // Language Switcher Custom Capsule Row
-                            _buildLanguageSwitcher(ref, activeLocale.languageCode),
-                          ],
-                        ),
-                      ),
+                             _buildLanguageSwitcher(ref, activeLocale.languageCode),
+                             const SizedBox(height: 24),
+                             Text(
+                               activeLocale.languageCode == 'uz'
+                                   ? 'Xaritani Tanlash'
+                                   : (activeLocale.languageCode == 'ru'
+                                       ? 'Выбор Карты'
+                                       : 'Select Map'),
+                               style: GoogleFonts.fredoka(
+                                 fontSize: 16,
+                                 fontWeight: FontWeight.w600,
+                                 color: GameTheme.darkWood,
+                               ),
+                             ),
+                             const SizedBox(height: 8),
+                             _buildMapSelectionList(ref, activeLocale.languageCode),
+                           ],
+                         ),
+                       ),
 
                       // VERTICAL SEPARATOR LINE
                       Container(
@@ -164,7 +181,7 @@ class MainMenuScreen extends ConsumerWidget {
                               child: AnimatedOpacity(
                                 opacity: selectedChar != null ? 1.0 : 0.4,
                                 duration: const Duration(milliseconds: 200),
-                                child: _buildPlayButton(context, selectedChar, localizations),
+                                 child: _buildPlayButton(context, ref, selectedChar, localizations),
                               ),
                             ),
                           ],
@@ -289,7 +306,12 @@ class MainMenuScreen extends ConsumerWidget {
   }
 
   /// Play Button Builder
-  Widget _buildPlayButton(BuildContext context, GameCharacter? selectedChar, AppLocalizations localizations) {
+  Widget _buildPlayButton(
+    BuildContext context,
+    WidgetRef ref,
+    GameCharacter? selectedChar,
+    AppLocalizations localizations,
+  ) {
     final active = selectedChar != null;
 
     return Container(
@@ -308,6 +330,10 @@ class MainMenuScreen extends ConsumerWidget {
       child: ElevatedButton(
         onPressed: active
             ? () {
+                // Initialize the game with the selected map before entering the screen
+                final selectedMap = ref.read(selectedMapProvider);
+                ref.read(gameStateProvider.notifier).resetGame(map: selectedMap);
+
                 Navigator.of(context).push(
                   PageRouteBuilder(
                     pageBuilder: (context, animation, secondaryAnimation) => const GameScreen(),
@@ -342,6 +368,65 @@ class MainMenuScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildMapSelectionList(WidgetRef ref, String langCode) {
+    final selectedMap = ref.watch(selectedMapProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: GameMap.availableMaps.map((map) {
+        final isSelected = selectedMap.type == map.type;
+        return GestureDetector(
+          onTap: () {
+            ref.read(selectedMapProvider.notifier).state = map;
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            margin: const EdgeInsets.only(bottom: 8.0),
+            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: isSelected ? GameTheme.primaryGreen : Colors.white.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected ? GameTheme.primaryGreen : Colors.black12,
+                width: 1.5,
+              ),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: GameTheme.primaryGreen.withValues(alpha: 0.2),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      )
+                    ]
+                  : null,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                  color: isSelected ? Colors.white : GameTheme.darkWood.withValues(alpha: 0.5),
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    map.getName(langCode),
+                    style: GoogleFonts.fredoka(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected ? Colors.white : GameTheme.darkWood,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 

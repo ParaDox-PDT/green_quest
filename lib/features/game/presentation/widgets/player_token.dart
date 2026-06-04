@@ -1,12 +1,13 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:green_quest/features/game/presentation/widgets/board_path.dart';
+import 'package:green_quest/features/game/domain/models/game_map.dart';
 import 'package:green_quest/features/menu/domain/providers/character_provider.dart';
 import 'package:green_quest/features/menu/presentation/widgets/character_painters.dart';
 
 class PlayerToken extends StatefulWidget {
   final GameCharacter? character; // null means Rival Crow
-  final int tile; // 1 to 100
+  final int tile; // 1 to totalTiles
+  final GameMap activeMap;
   final double size;
   final double offsetX; // shift when on same tile
 
@@ -14,6 +15,7 @@ class PlayerToken extends StatefulWidget {
     super.key,
     required this.character,
     required this.tile,
+    required this.activeMap,
     this.size = 42.0,
     this.offsetX = 0.0,
   });
@@ -103,8 +105,8 @@ class _PlayerTokenState extends State<PlayerToken> with SingleTickerProviderStat
     return AnimatedBuilder(
       animation: _animation,
       builder: (context, child) {
-        final currentOffset = BoardPath.getTileOffset(_currentVisualTile - 1);
-        final targetOffset = BoardPath.getTileOffset(_animatedTile - 1);
+        final currentOffset = widget.activeMap.getTileOffset(_currentVisualTile - 1);
+        final targetOffset = widget.activeMap.getTileOffset(_animatedTile - 1);
         
         // Lerp position
         final double t = _animation.value;

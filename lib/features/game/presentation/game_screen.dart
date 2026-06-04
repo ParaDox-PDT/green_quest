@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:green_quest/app/theme/theme.dart';
 import 'package:green_quest/core/l10n/app_localizations.dart';
 import 'package:green_quest/core/providers/locale_provider.dart';
+import 'package:green_quest/features/game/domain/models/game_map.dart';
 import 'package:green_quest/features/menu/domain/providers/character_provider.dart';
 import 'package:green_quest/features/menu/presentation/widgets/character_painters.dart';
 import 'package:green_quest/features/game/domain/providers/game_provider.dart';
@@ -19,37 +20,90 @@ class GameScreen extends ConsumerStatefulWidget {
   ConsumerState<GameScreen> createState() => _GameScreenState();
 }
 
-class _GameScreenState extends ConsumerState<GameScreen> {
+class _GameScreenState extends ConsumerState<GameScreen>
+    with SingleTickerProviderStateMixin {
   late ScrollController _scrollController;
+  final TransformationController _transformController = TransformationController();
+  late AnimationController _cameraAnimController;
+  Animation<Matrix4>? _cameraAnimation;
   bool _initializedScroll = false;
 
   @override
   void initState() {
     super.initState();
     _scrollController = ScrollController();
+    _cameraAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _cameraAnimController.addListener(() {
+      if (_cameraAnimation != null) {
+        _transformController.value = _cameraAnimation!.value;
+      }
+    });
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _cameraAnimController.dispose();
+    _transformController.dispose();
     super.dispose();
   }
 
-  void _scrollToTile(int tile) {
-    if (!_scrollController.hasClients) return;
-    final screenHeight = MediaQuery.of(context).size.height;
-    final tileOffset = BoardPath.getTileOffset(tile - 1);
-    
-    // Centering the tile in the vertical viewport
-    final double targetY = tileOffset.dy - (screenHeight / 2);
-    final double maxScroll = _scrollController.position.maxScrollExtent;
-    final double clampedY = targetY.clamp(0.0, maxScroll);
+  /// Smoothly animate the InteractiveViewer camera to a target translation
+  void _animateCameraTo(double targetX, double targetY) {
+    final Matrix4 currentMatrix = _transformController.value.clone();
+    final Matrix4 targetMatrix = Matrix4.translationValues(-targetX, -targetY, 0.0);
 
-    _scrollController.animateTo(
-      clampedY,
-      duration: const Duration(milliseconds: 700),
+    _cameraAnimation = Matrix4Tween(
+      begin: currentMatrix,
+      end: targetMatrix,
+    ).animate(CurvedAnimation(
+      parent: _cameraAnimController,
       curve: Curves.easeInOutCubic,
-    );
+    ));
+
+    _cameraAnimController.forward(from: 0.0);
+  }
+
+  void _scrollToTile(GameMap activeMap, int tile, {bool animate = true}) {
+    final screenSize = MediaQuery.of(context).size;
+    final tileOffset = activeMap.getTileOffset(tile - 1);
+
+    // For maps that fit in screen width, use the vertical-only scroll controller
+    if (activeMap.boardWidth <= screenSize.width) {
+      if (!_scrollController.hasClients) return;
+      final double targetY = tileOffset.dy - (screenSize.height / 2);
+      final double maxScroll = _scrollController.position.maxScrollExtent;
+      final double clampedY = targetY.clamp(0.0, maxScroll);
+
+      if (animate) {
+        _scrollController.animateTo(
+          clampedY,
+          duration: const Duration(milliseconds: 700),
+          curve: Curves.easeInOutCubic,
+        );
+      } else {
+        _scrollController.jumpTo(clampedY);
+      }
+    } else {
+      // For wide maps, use the TransformationController to pan
+      final double targetX = (tileOffset.dx - screenSize.width / 2).clamp(
+        0.0,
+        (activeMap.boardWidth - screenSize.width).clamp(0.0, double.infinity),
+      );
+      final double targetY = (tileOffset.dy - screenSize.height / 2).clamp(
+        0.0,
+        (activeMap.boardHeight + 40 - screenSize.height).clamp(0.0, double.infinity),
+      );
+
+      if (animate) {
+        _animateCameraTo(targetX, targetY);
+      } else {
+        _transformController.value = Matrix4.translationValues(-targetX, -targetY, 0.0);
+      }
+    }
   }
 
   @override
@@ -82,28 +136,26 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       
       if (next.isPlayerTurn && next.playerTile != previous.playerTile) {
         Future.delayed(const Duration(milliseconds: 250), () {
-          if (mounted) _scrollToTile(next.playerTile);
+          if (mounted) _scrollToTile(next.activeMap, next.playerTile);
         });
       } else if (!next.isPlayerTurn && next.rivalTile != previous.rivalTile) {
         Future.delayed(const Duration(milliseconds: 250), () {
-          if (mounted) _scrollToTile(next.rivalTile);
+          if (mounted) _scrollToTile(next.activeMap, next.rivalTile);
         });
       } else if (next.isPlayerTurn != previous.isPlayerTurn) {
         if (mounted) {
-          _scrollToTile(next.isPlayerTurn ? next.playerTile : next.rivalTile);
+          _scrollToTile(next.activeMap, next.isPlayerTurn ? next.playerTile : next.rivalTile);
         }
       }
     });
 
-    // Schedule initial scroll to the bottom of the board
+    // Schedule initial scroll to tile 1 (start position) - instant, no animation
     if (!_initializedScroll) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-          setState(() {
-            _initializedScroll = true;
-          });
-        }
+        _scrollToTile(gameState.activeMap, 1, animate: false);
+        setState(() {
+          _initializedScroll = true;
+        });
       });
     }
 
@@ -141,12 +193,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
             // Scrollable Game Board
             Positioned.fill(
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                child: Center(
-                  child: Container(
-                    width: BoardPath.boardWidth,
-                    height: BoardPath.boardHeight,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final boardContent = Container(
+                    width: gameState.activeMap.boardWidth,
+                    height: gameState.activeMap.boardHeight,
                     margin: const EdgeInsets.symmetric(vertical: 20.0),
                     child: Stack(
                       clipBehavior: Clip.none,
@@ -155,6 +206,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                         Positioned.fill(
                           child: CustomPaint(
                             painter: BoardPathPainter(
+                              activeMap: gameState.activeMap,
                               playerTile: gameState.playerTile,
                               rivalTile: gameState.rivalTile,
                               windTiles: gameState.windTiles,
@@ -170,6 +222,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                         PlayerToken(
                           character: selectedChar,
                           tile: gameState.playerTile,
+                          activeMap: gameState.activeMap,
                           offsetX: playerOffset,
                         ),
 
@@ -177,12 +230,31 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                         PlayerToken(
                           character: null, // Draws Rival Crow
                           tile: gameState.rivalTile,
+                          activeMap: gameState.activeMap,
                           offsetX: rivalOffset,
                         ),
                       ],
                     ),
-                  ),
-                ),
+                  );
+
+                  // If the board fits horizontally, use simple vertical scroll
+                  if (gameState.activeMap.boardWidth <= constraints.maxWidth) {
+                    return SingleChildScrollView(
+                      controller: _scrollController,
+                      child: Center(child: boardContent),
+                    );
+                  }
+
+                  // For wide maps, use InteractiveViewer for both axes
+                  return InteractiveViewer(
+                    transformationController: _transformController,
+                    constrained: false,
+                    boundaryMargin: const EdgeInsets.all(20.0),
+                    minScale: 0.4,
+                    maxScale: 1.5,
+                    child: boardContent,
+                  );
+                },
               ),
             ),
 
@@ -465,13 +537,34 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
     showDialog(
       context: context,
+      barrierDismissible: true,
       builder: (context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          title: Text(
-            title,
-            style: GoogleFonts.fredoka(fontWeight: FontWeight.bold, color: GameTheme.darkWood),
-            textAlign: TextAlign.center,
+          titlePadding: const EdgeInsets.fromLTRB(24, 16, 8, 8),
+          title: Row(
+            children: [
+              const SizedBox(width: 32),
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.fredoka(
+                    fontWeight: FontWeight.bold,
+                    color: GameTheme.darkWood,
+                    fontSize: 22,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.close_rounded,
+                  color: Color(0xFF8D6E63),
+                  size: 28,
+                ),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
           ),
           content: SizedBox(
             width: 480,
@@ -522,17 +615,6 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               ),
             ),
           ),
-          actions: [
-            Center(
-              child: TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text(
-                  lang == 'uz' ? 'Tushunarli' : (lang == 'ru' ? 'Понятно' : 'Got it!'),
-                  style: GoogleFonts.fredoka(fontWeight: FontWeight.bold, fontSize: 16, color: GameTheme.primaryGreen),
-                ),
-              ),
-            ),
-          ],
         );
       },
     );

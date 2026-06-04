@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:green_quest/app/theme/theme.dart';
+import 'package:green_quest/features/game/domain/models/game_map.dart';
 
 class BoardPath {
   static const double boardWidth = 500.0;
@@ -38,6 +39,7 @@ class BoardPath {
 
 /// Custom painter to draw the continuous sandy trail and nature elements
 class BoardPathPainter extends CustomPainter {
+  final GameMap activeMap;
   final int playerTile;
   final int rivalTile;
   final Map<int, int> windTiles;
@@ -47,6 +49,7 @@ class BoardPathPainter extends CustomPainter {
   final Set<int> startTiles;
 
   BoardPathPainter({
+    required this.activeMap,
     required this.playerTile,
     required this.rivalTile,
     required this.windTiles,
@@ -67,11 +70,11 @@ class BoardPathPainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round;
 
     final path = Path();
-    final firstOffset = BoardPath.getTileOffset(0);
+    final firstOffset = activeMap.getTileOffset(0);
     path.moveTo(firstOffset.dx, firstOffset.dy);
 
-    for (int i = 1; i < 100; i++) {
-      final offset = BoardPath.getTileOffset(i);
+    for (int i = 1; i < activeMap.totalTiles; i++) {
+      final offset = activeMap.getTileOffset(i);
       path.lineTo(offset.dx, offset.dy);
     }
 
@@ -106,8 +109,8 @@ class BoardPathPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
-    for (int i = 0; i < 100; i += 4) {
-      final offset = BoardPath.getTileOffset(i);
+    for (int i = 0; i < activeMap.totalTiles; i += 4) {
+      final offset = activeMap.getTileOffset(i);
       final dx = offset.dx + (i % 3 == 0 ? 32 : -32);
       final dy = offset.dy + (i % 2 == 0 ? 8 : -8);
 
@@ -123,19 +126,19 @@ class BoardPathPainter extends CustomPainter {
     }
 
     // 3. Draw each tile point
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < activeMap.totalTiles; i++) {
       _drawTile(canvas, i);
     }
   }
 
   /// Helper to draw individual tile visuals depending on its action type
   void _drawTile(Canvas canvas, int index) {
-    final offset = BoardPath.getTileOffset(index);
+    final offset = activeMap.getTileOffset(index);
     final tileNumber = index + 1;
 
     // Categorize tiles (1-based positions)
     final bool isStart = (tileNumber == 1);
-    final bool isFinish = (tileNumber == 100);
+    final bool isFinish = (tileNumber == activeMap.totalTiles);
     final bool isWind = windTiles.containsKey(tileNumber);
     final bool isFog = fogTiles.containsKey(tileNumber);
     final bool isNap = napTiles.contains(tileNumber);
@@ -220,29 +223,39 @@ class BoardPathPainter extends CustomPainter {
   void _drawReturnIcon(Canvas canvas, Offset offset, Color color) {
     final paint = Paint()
       ..color = color
-      ..strokeWidth = 2.5
+      ..strokeWidth = 3.0
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
     final cx = offset.dx;
     final cy = offset.dy;
 
-    // Draw a circular arrow turning counter-clockwise back
-    canvas.drawArc(
-      Rect.fromCenter(center: Offset(cx, cy), width: 16, height: 16),
-      0.5,
-      4.8,
-      false,
-      paint,
-    );
+    // Swirling portal vortex (concentric-like spiral)
+    final path = Path();
+    for (double theta = 0; theta < 2.5 * math.pi; theta += 0.15) {
+      final double r = 2.0 + (theta * 1.25);
+      final double x = cx + r * math.cos(theta);
+      final double y = cy + r * math.sin(theta);
+      if (theta == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    canvas.drawPath(path, paint);
 
-    // Draw arrow head at the end
-    final path = Path()
-      ..moveTo(cx - 8, cy - 2)
-      ..lineTo(cx - 12, cy - 2)
-      ..lineTo(cx - 10, cy + 2)
+    // Draw a small arrow head at the outer end of the spiral pointing left
+    const double endTheta = 2.5 * math.pi;
+    const double r = 2.0 + (endTheta * 1.25);
+    final double endX = cx + r * math.cos(endTheta);
+    final double endY = cy + r * math.sin(endTheta);
+
+    final arrowPath = Path()
+      ..moveTo(endX - 1, endY)
+      ..lineTo(endX + 3, endY - 4)
+      ..lineTo(endX + 3, endY + 4)
       ..close();
-    canvas.drawPath(path, Paint()..color = color);
+    canvas.drawPath(arrowPath, Paint()..color = color..style = PaintingStyle.fill);
   }
 
   void _drawText(Canvas canvas, Offset offset, String text, Color color, double size) {
@@ -283,22 +296,27 @@ class BoardPathPainter extends CustomPainter {
   void _drawWindIcon(Canvas canvas, Offset offset, Color color) {
     final paint = Paint()
       ..color = color
-      ..strokeWidth = 2.5
+      ..strokeWidth = 3.0
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
     final cx = offset.dx;
     final cy = offset.dy;
 
-    // Draw small wind swirl path
-    final path = Path()
-      ..moveTo(cx - 10, cy - 3)
-      ..quadraticBezierTo(cx - 3, cy - 6, cx + 5, cy - 3)
-      ..quadraticBezierTo(cx + 10, cy, cx + 7, cy + 4)
-      ..quadraticBezierTo(cx + 4, cy + 3, cx + 5, cy - 1);
-    canvas.drawPath(path, paint);
+    final path = Path();
+    // Top wind line with a loop
+    path.moveTo(cx - 12, cy - 4);
+    path.lineTo(cx + 2, cy - 4);
+    path.cubicTo(cx + 6, cy - 4, cx + 8, cy - 8, cx + 5, cy - 10);
+    path.cubicTo(cx + 2, cy - 12, cx + 0, cy - 8, cx + 3, cy - 6);
 
-    canvas.drawCircle(Offset(cx - 5, cy + 5), 1, Paint()..color = color);
+    // Bottom wind line with a loop
+    path.moveTo(cx - 10, cy + 4);
+    path.lineTo(cx + 0, cy + 4);
+    path.cubicTo(cx + 4, cy + 4, cx + 6, cy + 8, cx + 3, cy + 10);
+    path.cubicTo(cx + 0, cy + 12, cx - 2, cy + 8, cx + 1, cy + 6);
+
+    canvas.drawPath(path, paint);
   }
 
   void _drawFogIcon(Canvas canvas, Offset offset, Color color) {
@@ -348,7 +366,8 @@ class BoardPathPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant BoardPathPainter oldDelegate) {
-    return oldDelegate.playerTile != playerTile ||
+    return oldDelegate.activeMap != activeMap ||
+        oldDelegate.playerTile != playerTile ||
         oldDelegate.rivalTile != rivalTile ||
         oldDelegate.windTiles != windTiles ||
         oldDelegate.fogTiles != fogTiles ||
